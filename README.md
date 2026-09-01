@@ -39,6 +39,11 @@
 
 > Built as the final capstone project for **IT 15 (Information Technology 15 – Systems Development)**
 
+<p align="center">
+  <img src="docs/images/1_HomePage.png" width="48%" />
+  <img src="docs/images/2_LoginPage.png" width="48%" />
+</p>
+
 ---
 
 ## 🏗️ System Architecture
@@ -90,6 +95,8 @@ The application uses an **Areas-based** routing pattern to separate concerns acr
 | **Cancellation Requests** | Submit a cancellation request with a stated reason; admin reviews and approves/rejects |
 | **Support Tickets** | Contact platform support for account or system issues |
 
+![Service Booking](docs/images/5_ServiceBooking.png)
+
 ---
 
 ### Technician Portal
@@ -107,6 +114,8 @@ The application uses an **Areas-based** routing pattern to separate concerns acr
 | **Job Completion** | Mark jobs as complete; triggers invoice generation and stock deduction audit trail |
 | **Cancellation Workflow** | Handle customer cancellation requests; notify admin |
 
+![Technician Job List](docs/images/6_TechnicianJobList.png)
+
 ---
 
 ### Admin Panel
@@ -114,6 +123,8 @@ The application uses an **Areas-based** routing pattern to separate concerns acr
 #### 📊 Dashboard
 - Live KPI overview: total service requests, active technicians, pending invoices, open support tickets
 - Revenue, job completion rate, and inventory alerts at a glance
+
+![Admin Dashboard](docs/images/4_AdminDashboard.png)
 
 #### ⚙️ Operations
 - **Service Requests** – View, filter, assign technicians, update priorities, archive completed records
@@ -126,9 +137,16 @@ The application uses an **Areas-based** routing pattern to separate concerns acr
 - **Inventory** – Manage materials (add, edit, restock, delete items with low-stock alerts)
 - **Stock Movements** – Full audit trail of all inventory movements: who used each part, which job it went to, customer and location, restock events, and manual adjustments
 
+<p align="center">
+  <img src="docs/images/7_MaterialsInventory.png" width="48%" />
+  <img src="docs/images/8_QuotationAndBilling.png" width="48%" />
+</p>
+
 #### 👤 CRM
 - Customer profiles with full service history
 - Account management (view, edit, archive customers)
+
+![Customer CRM](docs/images/9_CustomerCRM.png)
 
 #### 🔔 Notifications
 - Platform-wide notification management
