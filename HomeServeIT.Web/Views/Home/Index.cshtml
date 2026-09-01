@@ -1,0 +1,248 @@
+@{
+    ViewData["Title"] = "Reliable IT Help";
+}
+
+<div class="max-w-[1152px] mx-auto px-[32px] pt-16 pb-24 relative">
+    <!-- Decorative background blob -->
+    <div class="absolute top-0 right-0 -z-10 w-[600px] h-[600px] bg-blue-50/50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
+
+    <!-- Hero Section -->
+    <div class="flex flex-col lg:flex-row items-center gap-16 mb-24 relative z-10" x-data="{ loaded: false }" x-init="setTimeout(() => loaded = true, 100)">
+        <!-- Hero Text -->
+        <div class="flex-1 space-y-8 transition-all duration-1000 transform" :class="loaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'">
+            <div class="inline-flex items-center gap-2 px-3 py-1 bg-blue-50/80 text-primary rounded-full text-xs font-semibold border border-blue-100/50 shadow-sm">
+                <div class="w-1.5 h-1.5 rounded-full bg-primary"></div>
+                Available now in Davao City
+            </div>
+            
+            <h1 class="text-[52px] leading-[1.1] font-bold text-dark tracking-tight">
+                Reliable IT help,<br />
+                from request<br />
+                to resolution.
+            </h1>
+            
+            <p class="text-lg text-muted max-w-[420px] leading-relaxed">
+                On-site, remote, pickup, and drop-off service for your computers, network, printers, CCTV, and more — backed by a clear process and honest pricing.
+            </p>
+            
+            <div class="flex items-center gap-4 pt-4">
+                <a asp-area="Identity" asp-page="/Account/Register" class="bg-primary hover:bg-primary-hover text-white px-7 py-3.5 rounded-xl font-semibold shadow-[0_8px_20px_-6px_rgba(8,120,249,0.4)] hover:shadow-[0_12px_24px_-6px_rgba(8,120,249,0.5)] transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 flex items-center gap-2">
+                    Request a service
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4"><path d="M3.33331 8H12.6666" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 3.33331L12.6667 7.99998L8 12.6666" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </a>
+                <a href="#services" class="bg-white hover:bg-gray-50 text-dark border border-gray-200 px-7 py-3.5 rounded-xl font-semibold shadow-sm hover:shadow transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-95">
+                    Explore services
+                </a>
+            </div>
+        </div>
+        
+        <!-- Hero Graphic -->
+        <div class="flex-1 w-full relative transition-all duration-1000 delay-200 transform" :class="loaded ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'">
+            <!-- Glassmorphism Card simulating service preview -->
+            <div class="bg-gradient-to-b from-[#ebf4ff] to-[#f8fafc] border border-white p-6 rounded-[16px] shadow-[0px_10px_30px_rgba(0,0,0,0.05)] w-full max-w-lg mx-auto relative">
+                <div class="text-[10px] text-muted font-mono mb-2 uppercase tracking-wider">Live Service Preview</div>
+                
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4 relative z-10">
+                    <div class="flex justify-between items-start mb-1">
+                        <div class="text-[10px] text-gray-400 font-mono">SR-2026-0125</div>
+                        <div class="bg-blue-50 text-primary text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-primary"></span> In progress
+                        </div>
+                    </div>
+                    <h3 class="font-semibold text-dark text-sm mb-0.5">Laptop diagnostics & SSD replacement</h3>
+                    <p class="text-xs text-muted mb-2">ASUS TUF Gaming F15 · Kyle Cabanig</p>
+                    
+                    <div class="flex items-center gap-1.5 mb-4 text-[10px] text-muted">
+                        <img src="~/img/calendar.svg" alt="Calendar" class="w-3 h-3" />
+                        <span>Sep 4, 2026 · 2:00 PM · Marco Reyes</span>
+                    </div>
+                    
+                    <!-- Progress Steps -->
+                    <div class="flex justify-between items-center px-2 mb-2">
+                        <div class="flex flex-col items-center gap-1 z-10 relative">
+                            <div class="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 4 4L19 6"/></svg></div>
+                            <span class="text-[9px] text-gray-400">Submitted</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-1 z-10 relative">
+                            <div class="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 4 4L19 6"/></svg></div>
+                            <span class="text-[9px] text-gray-400">Reviewed</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-1 z-10 relative">
+                            <div class="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 4 4L19 6"/></svg></div>
+                            <span class="text-[9px] text-gray-400">Assigned</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-1 z-10 relative">
+                            <div class="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 4 4L19 6"/></svg></div>
+                            <span class="text-[9px] text-primary font-medium">In progress</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-1 z-10 relative">
+                            <div class="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-gray-300 text-[10px] font-bold">5</div>
+                            <span class="text-[9px] text-gray-400">Complete</span>
+                        </div>
+                    </div>
+                    
+                    <div class="h-[2px] bg-gray-100 absolute left-[30px] right-[30px] top-[102px] -z-10">
+                        <div class="h-full bg-primary w-[75%]"></div>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2">
+                        <div class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
+                            <!-- Avatar from Figma -->
+                            <img src="~/img/avatar.svg" alt="Marco Reyes" class="w-full h-full object-cover" />
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-[11px] font-semibold text-dark">Marco Reyes</div>
+                            <div class="text-[10px] text-muted">On the way · ETA 15 min</div>
+                        </div>
+                        <div class="flex items-center gap-1 text-[10px] text-green-600 font-semibold bg-green-50 px-1.5 py-0.5 rounded">
+                            4.9 <svg class="h-3 w-3 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8-6.2-3.2L5.8 21 7 14.2l-5-4.9 6.9-1L12 2Z"/></svg>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white inline-flex items-center gap-4 px-5 py-3 rounded-2xl shadow-lg border border-gray-100 absolute -bottom-6 -left-6 z-20">
+                    <div>
+                        <div class="text-[10px] text-gray-400 font-medium mb-0.5 uppercase tracking-wide">Total estimate</div>
+                        <div class="font-bold text-dark text-lg">₱3,500.00</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Section -->
+    <div class="bg-white/40 backdrop-blur-3xl border-t border-b border-[#e7eaf0] py-12 mb-24 w-full relative z-10" x-data="{ shown: false }" x-intersect.once="shown = true">
+        <div class="max-w-[1152px] mx-auto px-[32px] grid grid-cols-2 md:grid-cols-4 gap-8 reveal-up" :class="shown ? 'is-visible' : ''">
+            <div class="text-center px-4 hover:scale-105 transition-transform duration-300 cursor-default">
+                <div class="text-3xl font-bold text-dark mb-1">1,200+</div>
+                <div class="text-xs text-muted font-medium uppercase tracking-wider">Jobs completed</div>
+            </div>
+            <div class="text-center px-4 hover:scale-105 transition-transform duration-300 cursor-default">
+                <div class="text-3xl font-bold text-dark mb-1 flex items-center justify-center gap-1">4.9<span class="text-yellow-400"><partial name="_AppIcon" model='"star"' /></span></div>
+                <div class="text-xs text-muted font-medium uppercase tracking-wider">Average rating</div>
+            </div>
+            <div class="text-center px-4 hover:scale-105 transition-transform duration-300 cursor-default">
+                <div class="text-3xl font-bold text-dark mb-1">48hr</div>
+                <div class="text-xs text-muted font-medium uppercase tracking-wider">Avg. turnaround</div>
+            </div>
+            <div class="text-center px-4 hover:scale-105 transition-transform duration-300 cursor-default">
+                <div class="text-3xl font-bold text-dark mb-1">100%</div>
+                <div class="text-xs text-muted font-medium uppercase tracking-wider">Warranty on labor</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- What we service -->
+    <div id="services" class="max-w-[1152px] mx-auto px-[32px] mb-24 relative z-10" x-data="{ shown: false }" x-intersect.once="shown = true">
+        <div class="mb-12 text-center max-w-xl mx-auto reveal-up" :class="shown ? 'is-visible' : ''">
+            <h2 class="text-3xl font-bold text-dark mb-4 tracking-tight">What we service</h2>
+            <p class="text-base text-muted">From routine maintenance to emergency data recovery, our certified experts handle all your IT infrastructure needs.</p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Service 1 -->
+            <div class="bg-white/60 backdrop-blur-xl border border-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:border-blue-200 transition-all duration-500 hover:-translate-y-2 group relative overflow-hidden reveal-up" :class="shown ? 'is-visible' : ''" style="transition-delay: 100ms;">
+                <div class="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-primary transition-all duration-300 group-hover:scale-110"><partial name="_AppIcon" model='"laptop"' /></div>
+                <h3 class="font-bold text-dark text-lg mb-2 relative z-10">Laptop & PC repair</h3>
+                <p class="text-sm text-muted mb-6 leading-relaxed min-h-[48px] relative z-10">Hardware diagnosis, component replacement, screen repair, and more.</p>
+                <a href="#" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
+            </div>
+            <!-- Service 2 -->
+            <div class="bg-white/60 backdrop-blur-xl border border-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:border-blue-200 transition-all duration-500 hover:-translate-y-2 group relative overflow-hidden reveal-up" :class="shown ? 'is-visible' : ''" style="transition-delay: 200ms;">
+                <div class="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-primary transition-all duration-300 group-hover:scale-110"><partial name="_AppIcon" model='"globe"' /></div>
+                <h3 class="font-bold text-dark text-lg mb-2 relative z-10">Network & Wi-Fi setup</h3>
+                <p class="text-sm text-muted mb-6 leading-relaxed min-h-[48px] relative z-10">Home and office network installation, router configuration, and troubleshooting.</p>
+                <a href="#" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
+            </div>
+            <!-- Service 3 -->
+            <div class="bg-white/60 backdrop-blur-xl border border-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:border-blue-200 transition-all duration-500 hover:-translate-y-2 group relative overflow-hidden reveal-up" :class="shown ? 'is-visible' : ''" style="transition-delay: 300ms;">
+                <div class="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-primary transition-all duration-300 group-hover:scale-110"><partial name="_AppIcon" model='"printer"' /></div>
+                <h3 class="font-bold text-dark text-lg mb-2 relative z-10">Printer support</h3>
+                <p class="text-sm text-muted mb-6 leading-relaxed min-h-[48px] relative z-10">Setup, driver installation, maintenance, and cartridge servicing.</p>
+                <a href="#" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
+            </div>
+            <!-- Service 4 -->
+            <div class="bg-white/60 backdrop-blur-xl border border-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:border-blue-200 transition-all duration-500 hover:-translate-y-2 group relative overflow-hidden reveal-up" :class="shown ? 'is-visible' : ''" style="transition-delay: 400ms;">
+                <div class="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-primary transition-all duration-300 group-hover:scale-110"><partial name="_AppIcon" model='"camera"' /></div>
+                <h3 class="font-bold text-dark text-lg mb-2 relative z-10">CCTV installation</h3>
+                <p class="text-sm text-muted mb-6 leading-relaxed min-h-[48px] relative z-10">IP camera systems, DVR/NVR setup, and remote viewing configuration.</p>
+                <a href="#" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
+            </div>
+            <!-- Service 5 -->
+            <div class="bg-white/60 backdrop-blur-xl border border-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:border-blue-200 transition-all duration-500 hover:-translate-y-2 group relative overflow-hidden reveal-up" :class="shown ? 'is-visible' : ''" style="transition-delay: 500ms;">
+                <div class="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-primary transition-all duration-300 group-hover:scale-110"><partial name="_AppIcon" model='"hard-drive"' /></div>
+                <h3 class="font-bold text-dark text-lg mb-2 relative z-10">Data backup & recovery</h3>
+                <p class="text-sm text-muted mb-6 leading-relaxed min-h-[48px] relative z-10">Secure data backup, cloud sync setup, and emergency data recovery.</p>
+                <a href="#" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
+            </div>
+            <!-- Service 6 -->
+            <div class="bg-white/60 backdrop-blur-xl border border-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:border-blue-200 transition-all duration-500 hover:-translate-y-2 group relative overflow-hidden reveal-up" :class="shown ? 'is-visible' : ''" style="transition-delay: 600ms;">
+                <div class="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-primary transition-all duration-300 group-hover:scale-110"><partial name="_AppIcon" model='"shield"' /></div>
+                <h3 class="font-bold text-dark text-lg mb-2 relative z-10">Software & security</h3>
+                <p class="text-sm text-muted mb-6 leading-relaxed min-h-[48px] relative z-10">OS installation, virus removal, software support, and security hardening.</p>
+                <a href="#" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
+            </div>
+        </div>
+    </div>
+
+    <!-- How it works -->
+    <div id="how-it-works" class="bg-white/40 backdrop-blur-3xl border-t border-b border-[#e7eaf0] py-20 mb-24 w-full relative z-10" x-data="{ shown: false }" x-intersect.once="shown = true">
+        <div class="max-w-[1152px] mx-auto px-[32px]">
+            <div class="mb-12 reveal-up" :class="shown ? 'is-visible' : ''">
+                <h2 class="text-3xl font-bold text-dark mb-3 tracking-tight">How it works</h2>
+                <p class="text-base text-muted">Four steps from request to resolution — clear, accountable, and on your schedule.</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 relative reveal-up" :class="shown ? 'is-visible' : ''" style="transition-delay: 200ms;">
+                <div class="hidden md:block absolute top-[15px] left-[10%] right-[10%] h-[1px] bg-[#e7eaf0] z-0"></div>
+                
+                <div class="relative z-10 bg-transparent">
+                <div class="text-[10px] font-mono text-primary font-bold mb-4 bg-[#f8fafc] inline-block pr-2 rounded-full px-3 py-1 border border-primary/10 shadow-sm">01</div>
+                <h4 class="text-sm font-semibold text-dark mb-2">Submit a request</h4>
+                <p class="text-xs text-muted leading-relaxed">Describe your issue, select your device, and choose a service method that works for you — on-site, remote, or drop-off.</p>
+            </div>
+            <div class="relative z-10 bg-transparent">
+                <div class="text-[10px] font-mono text-primary font-bold mb-4 bg-[#f8fafc] inline-block pr-2 rounded-full px-3 py-1 border border-primary/10 shadow-sm">02</div>
+                <h4 class="text-sm font-semibold text-dark mb-2">Get assigned a technician</h4>
+                <p class="text-xs text-muted leading-relaxed">We review your request, assign the right specialist, and confirm a time that fits your schedule.</p>
+            </div>
+                <div class="relative z-10 bg-transparent">
+                    <div class="text-[10px] font-mono text-primary font-bold mb-4 bg-[#f8fafc] inline-block pr-2 rounded-full px-3 py-1 border border-primary/10 shadow-sm">03</div>
+                <h4 class="text-sm font-semibold text-dark mb-2">Receive a quotation</h4>
+                <p class="text-xs text-muted leading-relaxed">Before any work begins, we send a clear, itemized quotation. You approve it — no surprises.</p>
+            </div>
+                <div class="relative z-10 bg-transparent">
+                    <div class="text-[10px] font-mono text-primary font-bold mb-4 bg-[#f8fafc] inline-block pr-2 rounded-full px-3 py-1 border border-primary/10 shadow-sm">04</div>
+                    <h4 class="text-sm font-semibold text-dark mb-2">Job complete, pay your way</h4>
+                    <p class="text-xs text-muted leading-relaxed">Once the job is done and tested, receive your invoice and pay via cash, GCash, or bank transfer.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CTA Section -->
+    <div class="max-w-[1152px] mx-auto px-[32px] mb-24 relative z-10" x-data="{ shown: false }" x-intersect.once="shown = true">
+        <div class="text-center py-24 relative overflow-hidden rounded-[40px] bg-dark text-white shadow-2xl reveal-up" :class="shown ? 'is-visible' : ''">
+            <!-- Animated inner glows for Apple depth -->
+            <div class="absolute inset-0 bg-gradient-to-br from-primary/30 via-dark to-dark -z-10"></div>
+            <div class="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-primary/30 rounded-full blur-[100px] pointer-events-none animate-blob-1"></div>
+            <div class="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-purple-500/20 rounded-full blur-[100px] pointer-events-none animate-blob-2 animation-delay-2000"></div>
+            
+            <h2 class="text-5xl font-bold mb-6 tracking-tight">Ready to get started?</h2>
+        <p class="text-base text-gray-300 mb-10 max-w-lg mx-auto">Create an account, register your device, and submit your first service request in under three minutes.</p>
+        <div class="flex items-center justify-center gap-4">
+            <a asp-area="Identity" asp-page="/Account/Register" class="bg-primary hover:bg-primary-hover text-white px-8 py-4 rounded-xl font-semibold shadow-[0_8px_20px_-6px_rgba(8,120,249,0.5)] hover:shadow-[0_12px_24px_-6px_rgba(8,120,249,0.6)] transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-95">
+                Request a service
+            </a>
+            <a asp-area="Identity" asp-page="/Account/Login" class="bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm border border-white/10 px-8 py-4 rounded-xl font-semibold transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-95">
+                Sign in to your account
+            </a>
+        </div>
+    </div>
+</div>

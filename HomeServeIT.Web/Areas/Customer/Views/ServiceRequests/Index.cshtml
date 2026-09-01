@@ -1,0 +1,1160 @@
+@model HomeServeIT.Web.Areas.Customer.Models.CustomerServiceRequestsViewModel
+@inject Microsoft.AspNetCore.Identity.UserManager<HomeServeIT.Web.Models.ApplicationUser> _userManager
+@{
+    ViewData["Title"] = "Service requests";
+    var allCount = Model.Requests.Count;
+    var inProgressCount = Model.Requests.Count(r => r.Status == "In Progress");
+    var scheduledCount = Model.Requests.Count(r => r.Status == "Pending");
+    var completedCount = Model.Requests.Count(r => r.Status == "Completed");
+    var cancelledCount = Model.Requests.Count(r => r.Status == "Cancelled");
+    var openJobId = ViewBag.OpenJobId as int?;
+    var openTab = ViewBag.OpenTab as string ?? "details";
+    var openCreate = ViewBag.OpenCreate is true;
+    var initialFilter = ViewBag.InitialFilter as string ?? "All";
+}
+
+<div class="flex flex-col p-[32px] max-w-7xl mx-auto w-full gap-[32px]"
+     x-data="{
+        showAddModal: false,
+        currentTab: '@initialFilter',
+        step: 1,
+        category: '',
+        priority: 'Normal',
+        description: '',
+        selectedDate: '',
+        selectedTime: '',
+        imagePreview: null,
+        imageFile: null,
+        drawerOpen: false,
+        drawerRequest: null,
+        submitting: false,
+        submitError: '',
+        drawerTab: 'details',
+        messages: [],
+        chatRequestId: null,
+        chatLoadSequence: 0,
+        newMessage: '',
+        connection: null,
+        currentUserId: '@_userManager.GetUserId(User)',
+        chatConnecting: false,
+        chatError: '',
+        sendingMessage: false,
+        workflowData: null,
+        initialDrawerTab: '@openTab',
+
+        get unreadMessageCount() {
+            return this.messages.filter(m => !m.isRead && m.senderId !== this.currentUserId).length;
+        },
+
+        get selectedTimeRange() {
+            const ranges = { morning: '8:00 AM – 12:00 PM', afternoon: '12:00 PM – 5:00 PM', evening: '5:00 PM – 8:00 PM', night: '8:00 PM – 10:00 PM' };
+            return ranges[this.selectedTime] ?? '';
+        },
+
+        get scheduledDateTime() {
+            if (!this.selectedDate || !this.selectedTime) return '';
+            const timeMap = { morning: '09:00', afternoon: '13:00', evening: '17:00', night: '20:00' };
+            return this.selectedDate + 'T' + (timeMap[this.selectedTime] ?? '09:00');
+        },
+
+        nextStep() { if (this.step < 3) this.step++; },
+        prevStep() { if (this.step > 1) this.step--; },
+
+        canNext() {
+            if (this.step === 1) return this.category !== '' && this.description.trim().length > 5;
+            if (this.step === 2) return this.selectedDate !== '' && this.selectedTime !== '';
+            return true;
+        },
+
+        handleImageChange(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            this.imageFile = file;
+            const reader = new FileReader();
+            reader.onload = (ev) => this.imagePreview = ev.target.result;
+            reader.readAsDataURL(file);
+        },
+
+        async openDrawer(req, initialTab = null) {
+            const isDifferentRequest = this.drawerRequest?.id?.toString() !== req.id?.toString();
+            if (isDifferentRequest) {
+                if (this.connection) {
+                    try { await this.connection.stop(); } catch (_) { }
+                    this.connection = null;
+                }
+                this.messages = [];
+                this.chatRequestId = null;
+                this.chatLoadSequence++;
+                this.chatError = '';
+            }
+            this.drawerRequest = req;
+            this.drawerTab = 'details';
+            this.drawerOpen = true;
+            await this.initWorkflow(req.id);
+            const requestedTab = initialTab || this.initialDrawerTab;
+            this.initialDrawerTab = 'details';
+            if (requestedTab === 'chat') await this.openMessages();
+            if (requestedTab === 'progress') this.drawerTab = 'progress';
+        },
+
+        async openMessages() {
+            this.drawerTab = 'chat';
+            if (!this.drawerRequest?.id) return;
+            await this.initChat(this.drawerRequest.id);
+            await this.markIncomingMessagesRead();
+            this.scrollToBottom();
+        },
+
+        async markIncomingMessagesRead() {
+            if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) return;
+            const unread = this.messages.filter(m => !m.isRead && m.senderId !== this.currentUserId);
+            for (const message of unread) {
+                await this.connection.invoke('MarkAsRead', this.drawerRequest.id.toString(), message.messageID);
+                message.isRead = true;
+            }
+        },
+
+        async initWorkflow(jobId) {
+            const res = await fetch(`/Customer/ServiceRequests/GetJobWorkflow?requestId=${jobId}`);
+            if(res.ok) {
+                this.workflowData = await res.json();
+            }
+        },
+
+        async initChat(jobId) {
+            const loadSequence = ++this.chatLoadSequence;
+            this.chatConnecting = true;
+            this.chatError = '';
+            try {
+                if (this.connection) await this.connection.stop();
+                this.connection = null;
+                this.messages = [];
+                this.chatRequestId = jobId.toString();
+                const res = await fetch(`/Customer/ServiceRequests/GetChatHistory?requestId=${jobId}`);
+                if (!res.ok) throw new Error('Message history could not be loaded.');
+                const history = await res.json();
+                if (loadSequence !== this.chatLoadSequence || this.chatRequestId !== jobId.toString()) return;
+                this.messages = Array.isArray(history) ? history : [];
+                this.connection = new signalR.HubConnectionBuilder().withUrl('/chathub').withAutomaticReconnect().build();
+                this.connection.on('ReceiveMessage', async (msg) => {
+                    const isMine = msg.senderId === this.currentUserId;
+                    this.messages.push({ messageID: msg.messageId, content: msg.content, timestamp: msg.timestamp, senderId: msg.senderId, senderName: msg.senderName || 'User', isRead: isMine });
+                    if (!isMine && this.drawerTab === 'chat') await this.markIncomingMessagesRead();
+                    this.scrollToBottom();
+                });
+                this.connection.on('MessageRead', (messageId) => {
+                    const m = this.messages.find(x => x.messageID === messageId);
+                    if (m) m.isRead = true;
+                });
+                this.connection.onreconnecting(() => this.chatError = 'Reconnecting to messages…');
+                this.connection.onreconnected(async () => {
+                    this.chatError = '';
+                    if (this.drawerRequest?.id?.toString() === jobId.toString()) {
+                        await this.connection.invoke('JoinRequestGroup', jobId.toString());
+                    }
+                });
+                await this.connection.start();
+                await this.connection.invoke('JoinRequestGroup', jobId.toString());
+                if (this.drawerTab === 'chat') await this.markIncomingMessagesRead();
+                this.scrollToBottom();
+            } catch (error) {
+                if (loadSequence === this.chatLoadSequence) {
+                    this.chatError = error?.message || 'Messages are temporarily unavailable.';
+                }
+            } finally {
+                if (loadSequence === this.chatLoadSequence) this.chatConnecting = false;
+            }
+        },
+
+        async sendMessage() {
+            const msg = this.newMessage.trim();
+            if (!msg || !this.connection || this.connection.state !== signalR.HubConnectionState.Connected || this.sendingMessage) return;
+            this.sendingMessage = true;
+            this.chatError = '';
+            try {
+                await this.connection.invoke('SendMessage', this.drawerRequest.id.toString(), msg);
+                this.newMessage = '';
+            } catch (error) {
+                this.chatError = 'Message not sent. Check your connection and try again.';
+            } finally {
+                this.sendingMessage = false;
+            }
+        },
+
+        formatScheduleDate(value, options = { weekday: 'long', month: 'long', day: 'numeric' }) {
+            if (!value) return '';
+            const [year, month, day] = value.split('-').map(Number);
+            return new Date(year, month - 1, day).toLocaleDateString('en-US', options);
+        },
+
+        scrollToBottom() {
+            setTimeout(() => {
+                const el = document.getElementById('chat-messages');
+                if (el) el.scrollTop = el.scrollHeight;
+            }, 100);
+        },
+
+        closeModal() {
+            this.showAddModal = false;
+            this.step = 1;
+            this.category = '';
+            this.priority = 'Normal';
+            this.description = '';
+            this.selectedDate = '';
+            this.selectedTime = '';
+            this.imagePreview = null;
+            this.imageFile = null;
+            this.submitError = '';
+        },
+
+        async submitRequest() {
+            this.submitting = true;
+            this.submitError = '';
+            try {
+                const form = document.getElementById('serviceRequestForm');
+                const formData = new FormData(form);
+                // Override hidden fields with current Alpine state
+                formData.set('issueDescription', this.description);
+                formData.set('serviceCategory', this.category);
+                formData.set('priority', this.priority);
+                formData.set('scheduledDate', this.scheduledDateTime);
+                if (this.imageFile) formData.set('image', this.imageFile);
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (response.ok || response.redirected) {
+                    window.location.href = response.url || form.action.replace('Create', '');
+                } else {
+                    this.submitError = 'Error ' + response.status + ': ' + response.statusText + '. Please try again.';
+                }
+            } catch(e) {
+                this.submitError = 'Network error: ' + e.message;
+            } finally {
+                this.submitting = false;
+            }
+        },
+
+        get upcomingDays() {
+            const days = [];
+            const today = new Date();
+            for (let i = 1; i <= 14; i++) {
+                const d = new Date(today);
+                d.setDate(today.getDate() + i);
+                days.push({
+                    label: d.toLocaleDateString('en-US', { weekday: 'short' }),
+                    day: d.getDate(),
+                    month: d.toLocaleDateString('en-US', { month: 'short' }),
+                    value: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+                });
+            }
+            return days;
+        }
+     }"
+     x-init="$nextTick(() => { @if (openCreate) { <text>showAddModal = true;</text> } @if (openJobId.HasValue) { <text>document.getElementById('service-request-@openJobId.Value')?.click();</text> } })">
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="bg-green-50 border border-green-200 text-green-800 px-[16px] py-[12px] rounded-[10px] font-['Inter'] text-[14px] flex items-center gap-[8px]">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            @TempData["SuccessMessage"]
+        </div>
+    }
+
+    <!-- Page Header -->
+    <div class="flex items-start justify-between">
+        <div class="flex flex-col gap-[4px]">
+            <h1 class="font-['Inter'] font-bold text-[28px] leading-[35px] tracking-tight text-[#17191c]">
+                Service requests
+            </h1>
+            <p class="font-['Inter'] text-[15px] leading-[21px] text-[#5d6470]">
+                Track all your service requests from submission to completion
+            </p>
+        </div>
+        <button @@click="showAddModal = true" class="flex items-center gap-[8px] bg-[#0878f9] text-white px-[16px] py-[10px] rounded-[10px] font-['Inter'] font-[550] text-[14px] hover:bg-blue-600 transition-colors shadow-sm">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            New request
+        </button>
+    </div>
+
+    <!-- Search & Tabs -->
+    <div class="flex items-center gap-[24px]">
+        <div class="relative w-[320px]">
+            <svg class="absolute left-[12px] top-[11px] text-[#8a929e]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" placeholder="Search requests…" class="w-full h-[36px] pl-[36px] pr-[12px] bg-white border border-[#e7eaf0] rounded-[8px] font-['Inter'] text-[14px] outline-none focus:border-[#0878f9]" />
+        </div>
+        <div class="flex gap-[8px] bg-gray-50/50 p-[4px] rounded-[10px] border border-[#e7eaf0]">
+            <button @@click="currentTab = 'All'" :class="currentTab === 'All' ? 'bg-white text-[#17191c] shadow-sm' : 'text-[#5d6470] hover:text-[#17191c]'" class="px-[12px] py-[6px] rounded-[6px] font-['Inter'] font-[550] text-[13px] flex items-center gap-[6px] transition-colors">
+                All <span class="bg-gray-100 text-gray-600 px-[6px] py-[2px] rounded-full text-[11px]">@allCount</span>
+            </button>
+            <button @@click="currentTab = 'In Progress'" :class="currentTab === 'In Progress' ? 'bg-white text-[#17191c] shadow-sm' : 'text-[#5d6470] hover:text-[#17191c]'" class="px-[12px] py-[6px] rounded-[6px] font-['Inter'] font-[550] text-[13px] flex items-center gap-[6px] transition-colors">
+                In progress <span class="bg-blue-50 text-blue-600 px-[6px] py-[2px] rounded-full text-[11px]">@inProgressCount</span>
+            </button>
+            <button @@click="currentTab = 'Pending'" :class="currentTab === 'Pending' ? 'bg-white text-[#17191c] shadow-sm' : 'text-[#5d6470] hover:text-[#17191c]'" class="px-[12px] py-[6px] rounded-[6px] font-['Inter'] font-[550] text-[13px] flex items-center gap-[6px] transition-colors">
+                Scheduled <span class="bg-gray-100 text-gray-600 px-[6px] py-[2px] rounded-full text-[11px]">@scheduledCount</span>
+            </button>
+            <button @@click="currentTab = 'Completed'" :class="currentTab === 'Completed' ? 'bg-white text-[#17191c] shadow-sm' : 'text-[#5d6470] hover:text-[#17191c]'" class="px-[12px] py-[6px] rounded-[6px] font-['Inter'] font-[550] text-[13px] flex items-center gap-[6px] transition-colors">
+                Completed <span class="bg-gray-100 text-gray-600 px-[6px] py-[2px] rounded-full text-[11px]">@completedCount</span>
+            </button>
+            <button @@click="currentTab = 'Cancelled'" :class="currentTab === 'Cancelled' ? 'bg-white text-red-700 shadow-sm' : 'text-[#5d6470] hover:text-red-700'" class="px-[12px] py-[6px] rounded-[6px] font-['Inter'] font-[550] text-[13px] flex items-center gap-[6px] transition-colors">
+                History <span class="bg-red-50 text-red-600 px-[6px] py-[2px] rounded-full text-[11px]">@cancelledCount</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white border border-[#e7eaf0] rounded-[12px] shadow-sm overflow-hidden flex flex-col" data-sort-grid>
+        <div class="grid grid-cols-[100px_minmax(200px,1fr)_200px_140px_100px_120px] gap-[16px] items-center px-[20px] py-[12px] bg-gray-50/50 border-b border-[#e7eaf0]">
+            <span data-grid-sort="0" class="font-['Inter'] font-[600] text-[12px] uppercase text-[#8a929e]">ID</span>
+            <span data-grid-sort="1" class="font-['Inter'] font-[600] text-[12px] uppercase text-[#8a929e]">Issue &middot; Category</span>
+            <span data-grid-sort="2" class="font-['Inter'] font-[600] text-[12px] uppercase text-[#8a929e]">Scheduled</span>
+            <span data-grid-sort="3" class="font-['Inter'] font-[600] text-[12px] uppercase text-[#8a929e]">Technician</span>
+            <span data-grid-sort="4" class="font-['Inter'] font-[600] text-[12px] uppercase text-[#8a929e]">Priority</span>
+            <span data-grid-sort="5" class="font-['Inter'] font-[600] text-[12px] uppercase text-[#8a929e]">Status</span>
+        </div>
+
+        <div class="flex flex-col">
+            @foreach (var request in Model.Requests)
+            {
+                var statusClass = "bg-gray-100 text-gray-700";
+                var dotClass = "bg-gray-400";
+                if (request.Status == "Completed") { statusClass = "bg-green-50 text-green-700"; dotClass = "bg-green-500"; }
+                else if (request.Status == "In Progress") { statusClass = "bg-blue-50 text-blue-700"; dotClass = "bg-blue-500"; }
+                else if (request.Status == "Pending") { statusClass = "bg-yellow-50 text-yellow-700"; dotClass = "bg-yellow-500"; }
+                else if (request.Status == "Cancelled") { statusClass = "bg-red-50 text-red-700"; dotClass = "bg-red-500"; }
+
+                var prioClass = "bg-blue-50 text-blue-700";
+                if (request.Priority == "Urgent") { prioClass = "bg-red-50 text-red-700"; }
+                else if (request.Priority == "Low") { prioClass = "bg-gray-100 text-gray-600"; }
+
+                var reqId = request.RequestID;
+                var reqCode = $"SR-{request.ScheduledDate.Year}-{request.RequestID:D4}";
+                var reqDesc = request.IssueDescription.Replace("'", "\\'").Replace("\"", "&quot;").Replace("\n", " ").Replace("\r", "");
+                var reqCat = request.ServiceCategory;
+                var reqDate = request.ScheduledDate.ToString("MMM d, yyyy · h:mm tt");
+                var reqTechFirstName = request.Technician?.FirstName ?? "";
+                var reqTechLastName = request.Technician?.LastName ?? "";
+                var reqTechSpecialty = request.Technician?.Specialty ?? "General IT Specialist";
+                var reqTechPhone = request.Technician?.User?.PhoneNumber ?? "";
+                var reqTech = request.Technician != null ? $"{request.Technician.FirstName} {request.Technician.LastName}" : "Unassigned";
+                var reqPrio = request.Priority;
+                var reqStatus = request.Status;
+                var displayStatus = request.Status == "PendingAdminApproval" ? "Pending" : request.Status;
+                var reqImage = request.ImagePath ?? "";
+
+                // Cancellation and Progress
+                var isCancelReq = request.IsCancellationRequested.ToString().ToLower();
+                var cancelStatus = request.CancellationStatus ?? "";
+                var cancelReason = (request.CancellationReason ?? "").Replace("'", "\\'").Replace("\"", "&quot;").Replace("\n", " ").Replace("\r", "");
+                var cancelRejectReason = (request.CancellationRejectReason ?? "").Replace("'", "\\'").Replace("\"", "&quot;").Replace("\n", " ");
+                var c1 = request.Check1_Diagnostic.ToString().ToLower();
+                var c2 = request.Check2_Hardware.ToString().ToLower();
+                var c3 = request.Check3_Firmware.ToString().ToLower();
+                var c4 = request.Check4_QA.ToString().ToLower();
+                var c5 = request.Check5_Handover.ToString().ToLower();
+
+                <div id="service-request-@request.RequestID" data-sort-row x-show="currentTab === 'All' || currentTab === '@request.Status'"
+                     @@click="openDrawer({ 
+                         id: '@reqId', code: '@reqCode', desc: '@reqDesc', cat: '@reqCat', date: '@reqDate', 
+                         tech: '@reqTech', techFirstName: '@reqTechFirstName', techLastName: '@reqTechLastName', techSpecialty: '@reqTechSpecialty', techPhone: '@reqTechPhone', 
+                         prio: '@reqPrio', status: '@reqStatus', image: '@reqImage',
+                         isCancelReq: @isCancelReq, cancelStatus: '@cancelStatus', cancelReason: '@cancelReason', cancelRejectReason: '@cancelRejectReason',
+                         c1: @c1, c2: @c2, c3: @c3, c4: @c4, c5: @c5
+                     })"
+                     class="grid grid-cols-[100px_minmax(200px,1fr)_200px_140px_100px_120px] gap-[16px] items-center px-[20px] py-[16px] border-b border-[#e7eaf0] hover:bg-blue-50/30 transition-colors last:border-0 cursor-pointer">
+                    <span data-sort-cell data-sort-value="@request.RequestID" class="font-['JetBrains_Mono'] font-medium text-[12px] text-[#0878f9]">SR-@request.ScheduledDate.Year-@request.RequestID.ToString("D4")</span>
+                    <div data-sort-cell class="flex flex-col gap-[2px]">
+                        <span class="font-['Inter'] font-[600] text-[14px] text-[#17191c] truncate">@request.IssueDescription</span>
+                        <span class="font-['Inter'] text-[12px] text-[#8a929e]">@request.ServiceCategory</span>
+                    </div>
+                    <div data-sort-cell data-sort-value="@request.ScheduledDate.ToString("O")" class="flex flex-col gap-[1px]">
+                        <span class="font-['Inter'] text-[13px] text-[#17191c] font-[500]">@request.ScheduledDate.ToString("MMM d, yyyy")</span>
+                        <span class="font-['Inter'] text-[12px] text-[#8a929e]">@request.ScheduledDate.ToString("h:mm tt")</span>
+                    </div>
+                    <span data-sort-cell class="font-['Inter'] text-[13px] text-[#17191c]">@(request.Technician != null ? $"{request.Technician.FirstName} {request.Technician.LastName.Substring(0, 1)}." : "Unassigned")</span>
+                    <span data-sort-cell class="inline-flex w-fit items-center px-[8px] py-[2px] rounded-full @prioClass font-['Inter'] font-[600] text-[11px]">@request.Priority</span>
+                    <span data-sort-cell data-sort-value="@displayStatus" class="inline-flex w-fit items-center gap-[6px] px-[8px] py-[2px] rounded-full @statusClass font-['Inter'] font-[600] text-[11px]">
+                        <span class="w-[6px] h-[6px] rounded-full @dotClass"></span>@displayStatus
+                    </span>
+                </div>
+            }
+            @if (!Model.Requests.Any())
+            {
+                <div class="px-[20px] py-[48px] text-center flex flex-col items-center gap-3">
+                    <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8a929e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </div>
+                    <p class="font-['Inter'] text-[#8a929e] text-[14px]">No service requests found.</p>
+                    <button @@click="showAddModal = true" class="text-[#0878f9] font-['Inter'] font-[550] text-[13px] hover:underline">Submit your first request →</button>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- ===== DETAIL DRAWER ===== -->
+    <div x-show="drawerOpen"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-[3px]"
+         style="display:none;"
+         @@keydown.escape.window="drawerOpen = false"
+         @@click.self="drawerOpen = false">
+
+        <div x-show="drawerOpen"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="translate-x-full"
+             x-transition:enter-end="translate-x-0"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="translate-x-0"
+             x-transition:leave-end="translate-x-full"
+             class="customer-premium-drawer absolute right-0 top-0 h-full w-full max-w-[580px] flex min-h-0 flex-col overflow-hidden"
+             role="dialog" aria-modal="true" aria-label="Service workspace">
+
+            <!-- Drawer Header -->
+            <div class="customer-drawer-header shrink-0 flex flex-col gap-5 px-4 pb-4 pt-5 sm:px-7 sm:pb-5 sm:pt-6">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="flex min-w-0 items-center gap-3.5">
+                        <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0878f9] to-indigo-600 text-white shadow-[0_10px_24px_rgba(8,120,249,0.28)]">
+                            <partial name="~/Views/Shared/_AppIcon.cshtml" model='"wrench"' />
+                        </span>
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h3 class="font-['Inter'] text-[17px] font-[750] leading-tight tracking-[-0.02em] text-[#17191c]">Service workspace</h3>
+                                <span class="rounded-full bg-blue-50 px-2.5 py-1 font-['JetBrains_Mono'] text-[10px] font-bold text-[#0878f9]" x-text="drawerRequest?.code || 'SR-DETAILS'"></span>
+                            </div>
+                            <p class="mt-1 truncate font-['Inter'] text-[12px] text-[#697386]" x-text="drawerRequest?.desc || 'Live service details and progress'"></p>
+                        </div>
+                    </div>
+                    <button type="button" @@click="drawerOpen = false" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100/80 text-[#697386] shadow-sm transition hover:bg-white hover:text-[#17191c] hover:shadow-md" aria-label="Close service workspace">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                </div>
+                <!-- Tabs -->
+                <div class="customer-drawer-tabs" role="tablist" aria-label="Service request sections">
+                    <button type="button" @@click="drawerTab = 'details'" :class="drawerTab === 'details' ? 'is-active' : ''" class="customer-drawer-tab">Overview</button>
+                    <button type="button" @@click="drawerTab = 'progress'" :class="drawerTab === 'progress' ? 'is-active' : ''" class="customer-drawer-tab">Progress</button>
+                    <button type="button" @@click="openMessages()" :class="drawerTab === 'chat' ? 'is-active' : ''" class="customer-drawer-tab">
+                        Messages
+                        <span class="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm" x-show="unreadMessageCount > 0" x-text="unreadMessageCount"></span>
+                    </button>
+                    <button type="button" @@click="drawerTab = 'workflow'" :class="drawerTab === 'workflow' ? 'is-active' : ''" class="customer-drawer-tab">Deliverables</button>
+                </div>
+            </div>
+
+            <!-- Drawer Body -->
+            <div class="customer-drawer-content flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-4 p-4 sm:px-7 sm:py-6" x-show="drawerRequest && drawerTab === 'details'">
+
+                <!-- 1. BADGES BAR -->
+                <div class="premium-muted-surface flex items-center justify-between gap-2 flex-wrap p-3.5 rounded-2xl">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold"
+                              :class="{
+                                'bg-green-100 text-green-800': drawerRequest?.status === 'Completed',
+                                'bg-blue-100 text-blue-800': drawerRequest?.status === 'In Progress',
+                                'bg-amber-100 text-amber-800': drawerRequest?.status === 'Pending',
+                                'bg-red-100 text-red-800': drawerRequest?.status === 'Cancelled'
+                              }">
+                            <span class="w-2 h-2 rounded-full"
+                                  :class="{
+                                    'bg-green-600': drawerRequest?.status === 'Completed',
+                                    'bg-blue-600 animate-pulse': drawerRequest?.status === 'In Progress',
+                                    'bg-amber-500': drawerRequest?.status === 'Pending',
+                                    'bg-red-500': drawerRequest?.status === 'Cancelled'
+                                  }"></span>
+                            <span x-text="drawerRequest?.status === 'Pending' ? 'Scheduled / Booked' : drawerRequest?.status === 'PendingAdminApproval' ? 'Pending' : drawerRequest?.status"></span>
+                        </span>
+                        
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold"
+                              :class="{
+                                'bg-red-50 text-red-700 border border-red-200': drawerRequest?.prio === 'Urgent',
+                                'bg-blue-50 text-blue-700 border border-blue-200': drawerRequest?.prio === 'Normal',
+                                'bg-gray-100 text-gray-600 border border-gray-200': drawerRequest?.prio === 'Low'
+                              }"
+                              x-text="drawerRequest?.prio + ' Priority'">
+                        </span>
+                    </div>
+
+                    <span class="text-[11px] font-medium text-[#8a929e] font-['JetBrains_Mono']" x-text="drawerRequest?.cat"></span>
+                </div>
+
+                <!-- 2. SERVICE LIFECYCLE TRACKER (VISUAL STEPPER) -->
+                <div class="premium-surface rounded-[22px] p-5" x-show="drawerRequest?.status !== 'Cancelled'">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="font-['Inter'] font-bold text-xs text-[#17191c] uppercase tracking-wider flex items-center gap-1.5">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0878f9" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                            Service Lifecycle
+                        </span>
+                        <span class="text-xs font-semibold font-['Inter']"
+                              :class="drawerRequest?.status === 'Completed' ? 'text-emerald-700' : (drawerRequest?.status === 'In Progress' ? 'text-blue-700' : 'text-amber-700')">
+                            <span x-show="drawerRequest?.status === 'Pending'">Step 1 of 4: Booking Queued</span>
+                            <span x-show="drawerRequest?.status === 'In Progress'">Step 3 of 4: Active Repair</span>
+                            <span x-show="drawerRequest?.status === 'Completed'">Step 4 of 4: 100% Completed</span>
+                        </span>
+                    </div>
+
+                    <!-- Visual Timeline Steps -->
+                    <div class="grid grid-cols-4 gap-1.5 relative text-center">
+                        <!-- Step 1: Booked -->
+                        <div class="flex flex-col items-center relative z-10">
+                            <div class="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-[11px] shadow-xs mb-1.5">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <span class="font-['Inter'] text-[11px] font-semibold text-[#17191c]">Booked</span>
+                            <span class="font-['Inter'] text-[9px] text-[#8a929e]">Confirmed</span>
+                        </div>
+
+                        <!-- Step 2: Assigned -->
+                        <div class="flex flex-col items-center relative z-10">
+                            <div class="w-7 h-7 rounded-full flex items-center justify-center font-bold text-[11px] shadow-xs mb-1.5 transition-colors"
+                                 :class="drawerRequest?.tech !== 'Unassigned' || drawerRequest?.status !== 'Pending' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white animate-pulse'">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <span class="font-['Inter'] text-[11px] font-semibold" :class="drawerRequest?.tech !== 'Unassigned' ? 'text-[#17191c]' : 'text-amber-700'">Assigned</span>
+                            <span class="font-['Inter'] text-[9px] text-[#8a929e]" x-text="drawerRequest?.tech !== 'Unassigned' ? 'Specialist Ready' : 'Pending Tech'"></span>
+                        </div>
+
+                        <!-- Step 3: In Service -->
+                        <div class="flex flex-col items-center relative z-10">
+                            <div class="w-7 h-7 rounded-full flex items-center justify-center font-bold text-[11px] shadow-xs mb-1.5 transition-colors"
+                                 :class="drawerRequest?.status === 'Completed' ? 'bg-emerald-500 text-white' : (drawerRequest?.status === 'In Progress' ? 'bg-blue-600 text-white ring-3 ring-blue-100 animate-pulse' : 'bg-gray-200 text-gray-500')">
+                                <template x-if="drawerRequest?.status === 'Completed'">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                                </template>
+                                <template x-if="drawerRequest?.status === 'In Progress'">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                </template>
+                                <template x-if="drawerRequest?.status === 'Pending'">
+                                    <span>3</span>
+                                </template>
+                            </div>
+                            <span class="font-['Inter'] text-[11px] font-semibold" :class="drawerRequest?.status !== 'Pending' ? 'text-[#17191c]' : 'text-gray-400'">In Repair</span>
+                            <span class="font-['Inter'] text-[9px] text-[#8a929e]" x-text="drawerRequest?.status === 'In Progress' ? 'Active Now' : (drawerRequest?.status === 'Completed' ? 'Done' : 'Queued')"></span>
+                        </div>
+
+                        <!-- Step 4: Completed -->
+                        <div class="flex flex-col items-center relative z-10">
+                            <div class="w-7 h-7 rounded-full flex items-center justify-center font-bold text-[11px] shadow-xs mb-1.5 transition-colors"
+                                 :class="drawerRequest?.status === 'Completed' ? 'bg-emerald-500 text-white ring-3 ring-emerald-100' : 'bg-gray-200 text-gray-500'">
+                                <template x-if="drawerRequest?.status === 'Completed'">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                                </template>
+                                <template x-if="drawerRequest?.status !== 'Completed'">
+                                    <span>4</span>
+                                </template>
+                            </div>
+                            <span class="font-['Inter'] text-[11px] font-semibold" :class="drawerRequest?.status === 'Completed' ? 'text-emerald-700' : 'text-gray-400'">Completed</span>
+                            <span class="font-['Inter'] text-[9px] text-[#8a929e]" x-text="drawerRequest?.status === 'Completed' ? 'Verified' : 'Final Step'"></span>
+                        </div>
+                    </div>
+
+                    <!-- Contextual Status Banner -->
+                    <div class="mt-4 rounded-xl bg-slate-50/90 px-3.5 py-3 text-xs font-['Inter'] flex items-center gap-2">
+                        <template x-if="drawerRequest?.status === 'Pending'">
+                            <p class="text-amber-800 flex items-center gap-1.5">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                Request confirmed. Technician will arrive at the scheduled time slot.
+                            </p>
+                        </template>
+                        <template x-if="drawerRequest?.status === 'In Progress'">
+                            <p class="text-blue-800 flex items-center gap-1.5">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                                Specialist is actively performing diagnostics and hardware/software repairs.
+                            </p>
+                        </template>
+                        <template x-if="drawerRequest?.status === 'Completed'">
+                            <p class="text-emerald-800 flex items-center gap-1.5">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                All tests passed and verified! 30-day service warranty is active.
+                            </p>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="rounded-[22px] border border-red-100 bg-gradient-to-br from-red-50 to-white p-5 shadow-sm" x-show="drawerRequest?.status === 'Cancelled'">
+                    <div class="flex items-start gap-3.5">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-red-600 shadow-sm ring-1 ring-red-100"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"x"' /></span>
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-[0.13em] text-red-600">Service history</p>
+                            <h4 class="mt-1 text-sm font-bold text-[#17191c]">This request was cancelled</h4>
+                            <p class="mt-1 text-xs leading-5 text-[#69717d]">The service is closed and retained here only for your records. Any related quotation or invoice has been removed.</p>
+                            <p class="mt-3 rounded-xl bg-white px-3 py-2 text-xs text-[#5d6470] ring-1 ring-red-100" x-show="drawerRequest?.cancelReason"><span class="font-bold text-[#30343a]">Reason:</span> <span x-text="drawerRequest?.cancelReason"></span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. ATTACHED PHOTO -->
+                <template x-if="drawerRequest && drawerRequest.image">
+                    <div class="premium-surface rounded-[22px] p-5 flex flex-col gap-3">
+                        <p class="font-['Inter'] font-[600] text-[11px] uppercase text-[#8a929e] tracking-wide">Attached Photo / Diagnosis Reference</p>
+                        <img :src="drawerRequest.image" alt="Attached photo" class="w-full rounded-2xl object-cover max-h-[240px] shadow-[0_12px_28px_rgba(15,23,42,0.12)]" />
+                    </div>
+                </template>
+                <!-- 4. ASSIGNED TECHNICIAN CARD -->
+                <div class="premium-surface rounded-[22px] p-5">
+                    <p class="font-['Inter'] font-[600] text-[11px] uppercase text-[#8a929e] mb-3 tracking-wide flex items-center justify-between">
+                        <span>Assigned Specialist</span>
+                        <span class="text-emerald-700 font-semibold text-[10px] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Verified Pro</span>
+                    </p>
+
+                    <template x-if="drawerRequest && drawerRequest.tech !== 'Unassigned'">
+                        <div class="flex flex-col gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0878f9] to-blue-600 text-white font-bold text-base flex items-center justify-center shadow-xs">
+                                    <span x-text="drawerRequest?.techFirstName ? (drawerRequest.techFirstName[0] + (drawerRequest.techLastName ? drawerRequest.techLastName[0] : '')) : 'T'"></span>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-['Inter'] font-bold text-[14px] text-[#17191c]" x-text="drawerRequest?.tech"></h4>
+                                    <p class="font-['Inter'] text-[12px] text-[#5d6470]" x-text="drawerRequest?.techSpecialty"></p>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-2 pt-2">
+                                <a :href="drawerRequest?.techPhone ? 'tel:' + drawerRequest.techPhone : '#'"
+                                       :class="drawerRequest?.techPhone ? '' : 'opacity-40 pointer-events-none'"
+                                       class="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-slate-100/80 hover:bg-slate-200/80 rounded-xl font-['Inter'] text-xs font-semibold text-[#17191c] transition-colors">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                    Call Specialist
+                                </a>
+                                <button type="button" @@click="openMessages()" class="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-blue-50 hover:bg-blue-100 rounded-xl font-['Inter'] text-xs font-semibold text-[#0878f9] transition-colors">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                                    Message Desk
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template x-if="drawerRequest && drawerRequest.tech === 'Unassigned'">
+                        <div class="flex items-center gap-3 p-3 bg-amber-50/60 rounded-xl border border-amber-200">
+                            <div class="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            </div>
+                            <div>
+                                <p class="font-['Inter'] font-semibold text-xs text-amber-900">Matching Specialist</p>
+                                <p class="font-['Inter'] text-[11px] text-amber-700">Assigning the best certified technician for your area.</p>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- 5. ISSUE DESCRIPTION & DETAILS -->
+                <div class="premium-surface rounded-[22px] p-5 flex flex-col gap-3">
+                    <p class="font-['Inter'] font-[600] text-[11px] uppercase text-[#8a929e] tracking-wide">Issue Description</p>
+                    <p class="font-['Inter'] text-[13.5px] text-[#17191c] leading-relaxed" x-text="drawerRequest?.desc"></p>
+
+                    <div class="grid grid-cols-2 gap-2.5 pt-2">
+                        <div class="premium-muted-surface rounded-xl p-3.5">
+                            <p class="font-['Inter'] text-[10px] uppercase font-[600] text-[#8a929e] mb-0.5 tracking-wider">Service Category</p>
+                            <p class="font-['Inter'] text-[12.5px] font-[600] text-[#17191c]" x-text="drawerRequest?.cat"></p>
+                        </div>
+                        <div class="premium-muted-surface rounded-xl p-3.5">
+                            <p class="font-['Inter'] text-[10px] uppercase font-[600] text-[#8a929e] mb-0.5 tracking-wider">Scheduled Date</p>
+                            <p class="font-['Inter'] text-[12.5px] font-[600] text-[#17191c]" x-text="drawerRequest?.date"></p>
+                        </div>
+                    </div>
+                </div>
+
+
+
+                <!-- 7. SERVICE GUARANTEE & BILLING SHORTCUT -->
+                <div class="premium-surface rounded-[22px] p-4 flex items-center justify-between gap-3" x-show="drawerRequest?.status !== 'Cancelled'">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </div>
+                        <div>
+                            <h5 class="font-['Inter'] font-bold text-xs text-[#17191c]">30-Day Service Guarantee</h5>
+                            <p class="font-['Inter'] text-[11px] text-[#5d6470]">Free warranty resolution for any recurrence.</p>
+                        </div>
+                    </div>
+                    <a asp-area="Customer" asp-controller="BillsAndPayments" asp-action="Index" class="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-[#0878f9] font-['Inter'] font-semibold text-xs rounded-xl transition-colors shrink-0">
+                        View Invoices →
+                    </a>
+                </div>
+
+                <!-- CANCELLATION WORKFLOW -->
+                <div class="mt-2" x-show="drawerRequest && drawerRequest.status !== 'Completed' && drawerRequest.status !== 'Cancelled'">
+                    <!-- If Cancel is already requested -->
+                    <template x-if="drawerRequest?.isCancelReq">
+                        <div class="bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col gap-2">
+                            <h4 class="font-['Inter'] font-bold text-sm text-red-900 flex items-center gap-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                                Cancellation Requested
+                            </h4>
+                            <p class="text-xs text-red-700">Status: <strong x-text="drawerRequest?.cancelStatus"></strong></p>
+                            <template x-if="drawerRequest?.cancelStatus === 'Rejected'">
+                                <div class="bg-white/80 p-3 rounded-lg border border-red-100 text-xs text-red-800 mt-1">
+                                    <strong class="block mb-1">Reason for Rejection:</strong>
+                                    <span x-text="drawerRequest?.cancelRejectReason"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <!-- If Not Requested Yet -->
+                    <template x-if="!drawerRequest?.isCancelReq">
+                        <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                            <!-- Instant cancel for Unassigned -->
+                            <template x-if="drawerRequest?.tech === 'Unassigned'">
+                                <form method="post" action="/Customer/ServiceRequests/CancelRequest" class="flex items-center justify-between">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="requestId" :value="drawerRequest.id" />
+                                    <div>
+                                        <h4 class="font-['Inter'] font-bold text-sm text-gray-900">Cancel Request</h4>
+                                        <p class="text-[11px] text-gray-500">Since no technician is assigned, you can cancel instantly.</p>
+                                    </div>
+                                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors">
+                                        Cancel Instantly
+                                    </button>
+                                </form>
+                            </template>
+                            <!-- Request cancel for Assigned -->
+                            <template x-if="drawerRequest?.tech !== 'Unassigned'">
+                                <form method="post" action="/Customer/ServiceRequests/RequestCancel" class="flex flex-col gap-3">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="requestId" :value="drawerRequest.id" />
+                                    <div>
+                                        <h4 class="font-['Inter'] font-bold text-sm text-gray-900">Request Cancellation</h4>
+                                        <p class="text-[11px] text-gray-500 mt-1">Because a technician is already assigned or working on this, cancellation must be approved by the Admin.</p>
+                                    </div>
+                                    <textarea name="reason" rows="2" placeholder="State your reason for cancellation..." class="w-full text-sm border border-gray-300 rounded-lg p-2 focus:ring-blue-500 outline-none" required></textarea>
+                                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors self-end">
+                                        Submit Request
+                                    </button>
+                                </form>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Drawer Body: Progress SOP Tab -->
+            <div class="customer-drawer-content flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:px-7 sm:py-6" x-show="drawerRequest && drawerTab === 'progress'" style="display:none;">
+                <div class="premium-surface rounded-[22px] p-5 flex flex-col gap-4">
+                    <div>
+                        <h3 class="font-['Inter'] font-bold text-[15px] text-[#17191c]">Live Technical Checklist</h3>
+                        <p class="font-['Inter'] text-[12px] text-[#8a929e] mt-1">Watch in real-time as your specialist completes the standard operating procedures.</p>
+                    </div>
+
+                    <div class="flex flex-col gap-3 mt-2">
+                        <!-- C1 -->
+                        <div class="flex items-start gap-3 p-3 rounded-xl border" :class="drawerRequest?.c1 ? 'bg-emerald-50/50 border-emerald-100' : 'bg-gray-50/50 border-gray-200'">
+                            <div class="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5" :class="drawerRequest?.c1 ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-transparent shadow-inner'">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-['Inter'] text-sm font-semibold" :class="drawerRequest?.c1 ? 'text-emerald-900' : 'text-gray-700'">1. Comprehensive Diagnostic</p>
+                                <p class="font-['Inter'] text-xs text-gray-500 mt-1">Thermal inspection, power rail test & event log triage.</p>
+                            </div>
+                        </div>
+                        <!-- C2 -->
+                        <div class="flex items-start gap-3 p-3 rounded-xl border" :class="drawerRequest?.c2 ? 'bg-emerald-50/50 border-emerald-100' : 'bg-gray-50/50 border-gray-200'">
+                            <div class="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5" :class="drawerRequest?.c2 ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-transparent shadow-inner'">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-['Inter'] text-sm font-semibold" :class="drawerRequest?.c2 ? 'text-emerald-900' : 'text-gray-700'">2. Hardware Repair / Part Replacement</p>
+                                <p class="font-['Inter'] text-xs text-gray-500 mt-1">Physical repairs, wiring harness & clean part installation.</p>
+                            </div>
+                        </div>
+                        <!-- C3 -->
+                        <div class="flex items-start gap-3 p-3 rounded-xl border" :class="drawerRequest?.c3 ? 'bg-emerald-50/50 border-emerald-100' : 'bg-gray-50/50 border-gray-200'">
+                            <div class="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5" :class="drawerRequest?.c3 ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-transparent shadow-inner'">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-['Inter'] text-sm font-semibold" :class="drawerRequest?.c3 ? 'text-emerald-900' : 'text-gray-700'">3. Firmware & System Configuration</p>
+                                <p class="font-['Inter'] text-xs text-gray-500 mt-1">Driver updates, OS calibration, and network connectivity.</p>
+                            </div>
+                        </div>
+                        <!-- C4 -->
+                        <div class="flex items-start gap-3 p-3 rounded-xl border" :class="drawerRequest?.c4 ? 'bg-emerald-50/50 border-emerald-100' : 'bg-gray-50/50 border-gray-200'">
+                            <div class="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5" :class="drawerRequest?.c4 ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-transparent shadow-inner'">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-['Inter'] text-sm font-semibold" :class="drawerRequest?.c4 ? 'text-emerald-900' : 'text-gray-700'">4. QA Stability & Stress Benchmark</p>
+                                <p class="font-['Inter'] text-xs text-gray-500 mt-1">Full functional stress test & performance verification.</p>
+                            </div>
+                        </div>
+                        <!-- C5 -->
+                        <div class="flex items-start gap-3 p-3 rounded-xl border" :class="drawerRequest?.c5 ? 'bg-emerald-50/50 border-emerald-100' : 'bg-gray-50/50 border-gray-200'">
+                            <div class="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5" :class="drawerRequest?.c5 ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-transparent shadow-inner'">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-['Inter'] text-sm font-semibold" :class="drawerRequest?.c5 ? 'text-emerald-900' : 'text-gray-700'">5. Handover & Warranty</p>
+                                <p class="font-['Inter'] text-xs text-gray-500 mt-1">Customer demonstration & electronic service sign-off.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Drawer Body: Chat Tab -->
+            <div class="customer-drawer-content flex-1 min-h-0 overflow-hidden flex flex-col" x-show="drawerRequest && drawerTab === 'chat'" style="display:none;">
+                <div class="shrink-0 px-4 py-2.5 bg-blue-50 border-b border-blue-100 text-[12px] text-blue-800" x-show="chatConnecting">Connecting securely…</div>
+                <div class="shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 bg-red-50 border-b border-red-100 text-[12px] text-red-700" x-show="chatError">
+                    <span x-text="chatError"></span>
+                    <button type="button" @@click="initChat(drawerRequest.id)" class="font-semibold underline">Retry</button>
+                </div>
+                <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 flex flex-col gap-3" id="chat-messages" aria-live="polite">
+                    <template x-for="msg in messages" :key="msg.messageID">
+                        <div class="flex flex-col max-w-[85%]" :class="msg.senderId === '@_userManager.GetUserId(User)' ? 'self-end items-end' : 'self-start items-start'">
+                            <span class="text-[10px] text-gray-500 mb-1" x-text="msg.senderName"></span>
+                            <div class="px-4 py-2.5 rounded-2xl shadow-sm text-sm font-['Inter']"
+                                 :class="msg.senderId === '@_userManager.GetUserId(User)' ? 'bg-blue-600 text-white rounded-tr-sm shadow-blue-200/70' : 'bg-white text-gray-800 rounded-tl-sm'">
+                                <span x-text="msg.content"></span>
+                            </div>
+                            <span class="text-[9px] text-gray-400 mt-1 flex items-center gap-1">
+                                <span x-text="new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})"></span>
+                                <template x-if="msg.senderId === '@_userManager.GetUserId(User)'">
+                                    <svg x-show="msg.isRead" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0878f9" stroke-width="3"><polyline points="20 6 9 17 4 12"/><polyline points="20 10 13 17" opacity="0.5"/></svg>
+                                </template>
+                            </span>
+                        </div>
+                    </template>
+                    <div x-show="messages.length === 0 && !chatConnecting" class="m-auto max-w-xs text-center py-10">
+                        <div class="mx-auto mb-3 w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"message-circle"' /></div>
+                        <p class="font-semibold text-gray-700 text-sm">Start the conversation</p>
+                        <p class="text-gray-500 text-xs mt-1">Ask about arrival time, preparation, or service progress.</p>
+                    </div>
+                </div>
+                <div class="customer-drawer-footer shrink-0 p-3 sm:p-4 flex items-end gap-2">
+                    <label class="sr-only" for="customer-chat-message">Message</label>
+                    <textarea id="customer-chat-message" rows="1" maxlength="2000" x-model="newMessage" @@keydown.enter.prevent="if (!$event.shiftKey) sendMessage(); else newMessage += '\n'" :disabled="chatConnecting || !connection" class="flex-1 min-h-10 max-h-28 resize-none border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none disabled:bg-gray-100" placeholder="Message your technician…"></textarea>
+                    <button type="button" @@click="sendMessage()" :disabled="!newMessage.trim() || chatConnecting || sendingMessage || !connection" class="w-10 h-10 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl flex items-center justify-center shrink-0 transition-colors" aria-label="Send message">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Drawer Body: Workflow & Invoice Tab -->
+            <div class="customer-drawer-content flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:px-7 sm:py-6 flex flex-col gap-5" x-show="drawerRequest && drawerTab === 'workflow'" style="display:none;">
+                <template x-if="workflowData?.invoice">
+                    <div class="premium-surface rounded-[22px] p-5">
+                        <h4 class="font-bold text-sm text-gray-900 mb-2">Service Invoice / Quotation</h4>
+                        <div class="premium-muted-surface flex justify-between items-center p-3.5 rounded-xl mb-3">
+                            <span class="text-sm font-semibold text-gray-700">Total Amount</span>
+                            <span class="text-lg font-bold text-blue-600" x-text="'₱' + workflowData.invoice.totalAmount.toFixed(2)"></span>
+                        </div>
+                        <p class="text-xs text-gray-600 mb-4" x-text="workflowData.invoice.breakdownDetails"></p>
+                        
+                        <template x-if="workflowData.invoice.paymentStatus === 'Unpaid'">
+                            <form method="post" asp-action="PayInvoice" asp-controller="ServiceRequests" asp-area="Customer">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="invoiceId" :value="workflowData.invoice.invoiceID" />
+                                <button type="submit" class="w-full bg-[#0878f9] hover:bg-blue-600 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors">
+                                    Approve & Pay Invoice
+                                </button>
+                                <p class="text-[11px] text-gray-500 text-center mt-2">By paying, you authorize the technician to begin the repairs.</p>
+                            </form>
+                        </template>
+                        <template x-if="workflowData.invoice.paymentStatus === 'Paid'">
+                            <div class="w-full bg-emerald-50 text-emerald-700 font-semibold text-sm py-2.5 rounded-lg text-center border border-emerald-200 flex items-center justify-center gap-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                Invoice Paid
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template x-if="!workflowData?.invoice">
+                    <div class="premium-muted-surface p-7 rounded-[22px] text-center">
+                        <p class="text-sm font-medium text-gray-500">No invoice or quotation available yet.</p>
+                    </div>
+                </template>
+
+                <template x-if="workflowData?.deliverables?.length > 0">
+                    <div class="premium-surface rounded-[22px] p-5">
+                        <h4 class="font-bold text-sm text-gray-900 mb-3">Service Deliverables</h4>
+                        <template x-for="del in workflowData.deliverables" :key="del.deliverableID">
+                            <div class="premium-muted-surface p-4 rounded-2xl mb-3">
+                                <p class="text-xs font-semibold text-gray-700 mb-1">Final Proof</p>
+                                <p class="text-xs text-gray-600 mb-2" x-text="del.description"></p>
+                                <template x-if="del.imagePath">
+                                    <img :src="del.imagePath" class="w-full h-40 object-cover rounded-lg border border-gray-200 mb-3" />
+                                </template>
+                            </div>
+                        </template>
+                        
+                        <template x-if="drawerRequest?.status === 'PendingCustomerReview'">
+                            <div class="flex flex-col gap-2 border-t border-gray-200 pt-3">
+                                <form method="post" asp-action="ReviewDeliverables" asp-controller="ServiceRequests" asp-area="Customer">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="requestId" :value="drawerRequest.id" />
+                                    <input type="hidden" name="actionType" value="Approve" />
+                                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm py-2 rounded-lg transition-colors mb-2">
+                                        Accept & Mark Completed
+                                    </button>
+                                </form>
+                                <form method="post" asp-action="ReviewDeliverables" asp-controller="ServiceRequests" asp-area="Customer">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="requestId" :value="drawerRequest.id" />
+                                    <input type="hidden" name="actionType" value="Revise" />
+                                    <textarea name="feedback" required rows="2" placeholder="Describe the revisions needed..." class="w-full border rounded-lg px-3 py-2 text-xs mb-2"></textarea>
+                                    <button type="submit" class="w-full bg-white border border-gray-300 text-gray-700 font-semibold text-sm py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                                        Request Revisions
+                                    </button>
+                                </form>
+                            </div>
+                        </template>
+                        <template x-if="drawerRequest?.status === 'Completed'">
+                            <div class="text-center text-sm font-semibold text-emerald-700 bg-emerald-50 py-2 rounded-lg mt-2">
+                                Job Officially Completed
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== NEW REQUEST MODAL (3-Step Wizard) ===== -->
+    <div x-show="showAddModal"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"
+         style="display: none;">
+
+        <div @@click.outside="closeModal()" class="relative w-full max-w-lg max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] bg-white rounded-t-[20px] sm:rounded-[20px] shadow-2xl flex min-h-0 flex-col overflow-hidden">
+
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between px-6 pt-6 pb-4 border-b border-[#f0f2f5]">
+                <div>
+                    <h3 class="font-['Inter'] font-[700] text-[#17191c] text-[18px]">New service request</h3>
+                    <p class="font-['Inter'] text-[13px] text-[#8a929e] mt-0.5" x-text="step === 1 ? 'Tell us what\'s going on' : step === 2 ? 'Pick a time that works for you' : 'Add a photo (optional)'"></p>
+                </div>
+                <button @@click="closeModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-[#8a929e] transition-colors">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Step Indicator -->
+            <div class="flex items-center gap-2 px-6 py-3 bg-gray-50/70">
+                <template x-for="n in [1,2,3]" :key="n">
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-bold transition-all"
+                             :class="step > n ? 'bg-[#0878f9] text-white' : step === n ? 'bg-[#0878f9] text-white ring-4 ring-blue-100' : 'bg-gray-200 text-gray-500'">
+                            <svg x-show="step > n" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 4 4L19 6"/></svg>
+                            <span x-show="step <= n" x-text="n"></span>
+                        </div>
+                        <div x-show="n < 3" class="w-10 h-[2px] rounded-full transition-colors" :class="step > n ? 'bg-[#0878f9]' : 'bg-gray-200'"></div>
+                    </div>
+                </template>
+                <span class="ml-auto font-['Inter'] text-[12px] text-[#8a929e]" x-text="'Step ' + step + ' of 3'"></span>
+            </div>
+
+            <form asp-area="Customer" asp-controller="ServiceRequests" asp-action="Create" method="post" enctype="multipart/form-data" id="serviceRequestForm" class="flex min-h-0 flex-1 flex-col">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="scheduledDate" :value="scheduledDateTime" />
+                <input type="hidden" name="serviceCategory" :value="category" />
+                <input type="hidden" name="priority" :value="priority" />
+
+                <!-- STEP 1 — Issue -->
+                <div x-show="step === 1" class="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-5 p-4 sm:p-6">
+
+                    <!-- Category Picker -->
+                    <div>
+                        <label class="block font-['Inter'] font-[600] text-[13px] text-[#17191c] mb-3">What type of issue?</label>
+                        <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                            <template x-for="cat in [
+                                { id: 'Hardware Repair', icon: '<svg width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><path d=\'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z\'/></svg>', label: 'Hardware Repair' },
+                                { id: 'Software / OS', icon: '<svg width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><rect x=\'2\' y=\'3\' width=\'20\' height=\'14\' rx=\'2\' ry=\'2\'/><line x1=\'8\' y1=\'21\' x2=\'16\' y2=\'21\'/><line x1=\'12\' y1=\'17\' x2=\'12\' y2=\'21\'/></svg>', label: 'Software / OS' },
+                                { id: 'Network Setup', icon: '<svg width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><path d=\'M5 12.55a11 11 0 0 1 14.08 0\'/><path d=\'M1.42 9a16 16 0 0 1 21.16 0\'/><path d=\'M8.53 16.11a6 6 0 0 1 6.95 0\'/><line x1=\'12\' y1=\'20\' x2=\'12.01\' y2=\'20\'/></svg>', label: 'Network Setup' },
+                                { id: 'CCTV / Security', icon: '<svg width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><path d=\'M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z\'/><circle cx=\'12\' cy=\'13\' r=\'3\'/></svg>', label: 'CCTV / Security' },
+                                { id: 'Data Recovery', icon: '<svg width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><ellipse cx=\'12\' cy=\'5\' rx=\'9\' ry=\'3\'/><path d=\'M21 12c0 1.66-4 3-9 3s-9-1.34-9-3\'/><path d=\'M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5\'/></svg>', label: 'Data Recovery' },
+                                { id: 'Phone', icon: '<svg width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><rect x=\'5\' y=\'2\' width=\'14\' height=\'20\' rx=\'3\'/><path d=\'M9 5h6\'/><path d=\'M11 18h2\'/></svg>', label: 'Phone' },
+                                { id: 'Other', icon: '<svg width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><circle cx=\'12\' cy=\'12\' r=\'10\'/><line x1=\'12\' y1=\'8\' x2=\'12\' y2=\'12\'/><line x1=\'12\' y1=\'16\' x2=\'12.01\' y2=\'16\'/></svg>', label: 'Other' }
+                            ]" :key="cat.id">
+                                <button type="button"
+                                        @@click="category = cat.id"
+                                        :class="category === cat.id ? 'border-[#0878f9] bg-blue-50 text-[#0878f9] ring-2 ring-blue-100' : 'border-[#e7eaf0] hover:border-gray-300 text-[#5d6470]'"
+                                        class="flex flex-col items-center gap-2 p-3 border rounded-[12px] transition-all cursor-pointer">
+                                    <span x-html="cat.icon" class="mb-1"></span>
+                                    <span class="font-['Inter'] font-[550] text-[11px] text-center leading-tight" x-text="cat.label"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div>
+                        <label class="block font-['Inter'] font-[600] text-[13px] text-[#17191c] mb-2">Describe the issue</label>
+                        <textarea name="issueDescription" x-model="description" placeholder="e.g. My laptop screen is flickering and won't turn on after a fall…"
+                                  class="w-full bg-white border border-[#e7eaf0] rounded-[10px] p-[12px] font-['Inter'] text-[14px] outline-none focus:border-[#0878f9] focus:ring-2 focus:ring-blue-100 transition-all min-h-[100px] resize-none placeholder:text-[#c1c7d0]"></textarea>
+                    </div>
+
+                    <!-- Priority -->
+                    <div>
+                        <label class="block font-['Inter'] font-[600] text-[13px] text-[#17191c] mb-2">Priority level</label>
+                        <div class="flex gap-2">
+                            <template x-for="p in [
+                                { id: 'Low', color: 'text-gray-600', activeBg: 'bg-gray-100 border-gray-400', dot: 'bg-gray-400' },
+                                { id: 'Normal', color: 'text-blue-600', activeBg: 'bg-blue-50 border-[#0878f9]', dot: 'bg-blue-500' },
+                                { id: 'Urgent', color: 'text-red-600', activeBg: 'bg-red-50 border-red-400', dot: 'bg-red-500' }
+                            ]" :key="p.id">
+                                <button type="button"
+                                        @@click="priority = p.id"
+                                        :class="priority === p.id ? p.activeBg + ' ring-2 ring-offset-0' : 'border-[#e7eaf0] hover:border-gray-300'"
+                                        class="flex-1 flex items-center justify-center gap-2 py-2 px-3 border rounded-[8px] font-['Inter'] font-[550] text-[13px] transition-all cursor-pointer">
+                                    <span class="w-2 h-2 rounded-full" :class="p.dot"></span>
+                                    <span x-text="p.id" :class="priority === p.id ? p.color : 'text-[#5d6470]'"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 2 — Schedule -->
+                <div x-show="step === 2" class="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-5 p-4 sm:p-6">
+
+                    <!-- Date Picker -->
+                    <div>
+                        <div class="flex items-end justify-between gap-3 mb-3">
+                            <div>
+                                <label class="block font-['Inter'] font-[600] text-[13px] text-[#17191c]">Choose a visit date</label>
+                                <p class="text-[11px] text-[#8a929e] mt-0.5">Next 14 available days</p>
+                            </div>
+                            <span class="shrink-0 text-[10px] font-semibold text-[#5d6470] bg-gray-100 rounded-full px-2.5 py-1">PHT · UTC+8</span>
+                        </div>
+                        <div class="flex gap-2 overflow-x-auto snap-x pb-2 -mx-1 px-1">
+                            <template x-for="d in upcomingDays" :key="d.value">
+                                <button type="button"
+                                        @@click="selectedDate = d.value"
+                                        :aria-pressed="selectedDate === d.value"
+                                        :class="selectedDate === d.value ? 'bg-[#0878f9] text-white border-[#0878f9] shadow-md ring-2 ring-blue-100' : 'bg-white border-[#e7eaf0] text-[#5d6470] hover:border-blue-300 hover:bg-blue-50/40'"
+                                        class="snap-start flex flex-col items-center gap-0.5 min-w-[60px] py-3 px-1 border rounded-[12px] transition-all cursor-pointer">
+                                    <span class="font-['Inter'] text-[10px] font-[600] uppercase" x-text="d.label"></span>
+                                    <span class="font-['Inter'] text-[20px] font-[700] leading-none" x-text="d.day"></span>
+                                    <span class="font-['Inter'] text-[10px]" x-text="d.month"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Time Slot -->
+                    <div>
+                        <label class="block font-['Inter'] font-[600] text-[13px] text-[#17191c] mb-3">Preferred time</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <template x-for="slot in [
+                                { id: 'morning', label: 'Morning', range: '8:00 AM – 12:00 PM', icon: '<svg width=\'20\' height=\'20\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><path d=\'M12 2v2\'/><path d=\'m4.93 4.93 1.41 1.41\'/><path d=\'m19.07 4.93-1.41 1.41\'/><path d=\'M2 18h20\'/><path d=\'m16 18-1-5a4.08 4.08 0 0 0-6 0l-1 5\'/></svg>' },
+                                { id: 'afternoon', label: 'Afternoon', range: '12:00 PM – 5:00 PM', icon: '<svg width=\'20\' height=\'20\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><circle cx=\'12\' cy=\'12\' r=\'4\'/><path d=\'M12 2v2\'/><path d=\'M12 20v2\'/><path d=\'m4.93 4.93 1.41 1.41\'/><path d=\'m17.66 17.66 1.41 1.41\'/><path d=\'M2 12h2\'/><path d=\'M20 12h2\'/><path d=\'m6.34 17.66-1.41 1.41\'/><path d=\'m19.07 4.93-1.41 1.41\'/></svg>' },
+                                { id: 'evening', label: 'Evening', range: '5:00 PM – 8:00 PM', icon: '<svg width=\'20\' height=\'20\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><path d=\'M12 10v2\'/><path d=\'m4.93 10.93 1.41 1.41\'/><path d=\'m19.07 10.93-1.41 1.41\'/><path d=\'M2 18h20\'/><path d=\'m16 18-1-5a4.08 4.08 0 0 0-6 0l-1 5\'/></svg>' },
+                                { id: 'night', label: 'Night', range: '8:00 PM – 10:00 PM', icon: '<svg width=\'20\' height=\'20\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><path d=\'M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z\'/></svg>' }
+                            ]" :key="slot.id">
+                                <button type="button"
+                                        @@click="selectedTime = slot.id"
+                                        :aria-pressed="selectedTime === slot.id"
+                                        :class="selectedTime === slot.id ? 'border-[#0878f9] bg-blue-50 ring-2 ring-blue-100' : 'border-[#e7eaf0] hover:border-blue-300 hover:bg-blue-50/40'"
+                                        class="flex items-center gap-3 p-3 border rounded-[12px] transition-all cursor-pointer text-left">
+                                    <span x-html="slot.icon" :class="selectedTime === slot.id ? 'text-[#0878f9]' : 'text-[#8a929e]'"></span>
+                                    <div>
+                                        <p class="font-['Inter'] font-[600] text-[13px]"
+                                           :class="selectedTime === slot.id ? 'text-[#0878f9]' : 'text-[#17191c]'"
+                                           x-text="slot.label"></p>
+                                        <p class="font-['Inter'] text-[11px] text-[#8a929e]" x-text="slot.range"></p>
+                                    </div>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Summary -->
+                    <template x-if="selectedDate && selectedTime">
+                        <div class="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-[10px] px-4 py-3">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0878f9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            <p class="font-['Inter'] text-[13px] text-[#0878f9] font-[550]">
+                                Scheduled for <span class="font-bold" x-text="formatScheduleDate(selectedDate)"></span>
+                                &nbsp;·&nbsp; <span x-text="selectedTimeRange"></span>
+                            </p>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- STEP 3 — Photo Upload -->
+                <div x-show="step === 3" class="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-5 p-4 sm:p-6">
+                    <div>
+                        <label class="block font-['Inter'] font-[600] text-[13px] text-[#17191c] mb-1">Attach a photo</label>
+                        <p class="font-['Inter'] text-[12px] text-[#8a929e] mb-3">Helps the technician understand the issue better. JPG, PNG, WEBP up to 10MB.</p>
+
+                        <!-- Drop Zone -->
+                        <label for="imageUpload"
+                               x-show="!imagePreview"
+                               class="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-[#e7eaf0] rounded-[14px] p-8 cursor-pointer hover:border-[#0878f9] hover:bg-blue-50/30 transition-all group">
+                            <div class="w-12 h-12 bg-gray-100 group-hover:bg-blue-100 rounded-full flex items-center justify-center transition-colors">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8a929e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="group-hover:stroke-[#0878f9] transition-colors"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            </div>
+                            <div class="text-center">
+                                <p class="font-['Inter'] font-[600] text-[14px] text-[#17191c]">Click to upload or drag &amp; drop</p>
+                                <p class="font-['Inter'] text-[12px] text-[#8a929e] mt-1">PNG, JPG, WEBP (max 10MB)</p>
+                            </div>
+                        </label>
+                        <input type="file" id="imageUpload" name="image" accept="image/*" class="hidden" @@change="handleImageChange($event)" />
+
+                        <!-- Preview -->
+                        <div x-show="imagePreview" class="relative rounded-[14px] overflow-hidden border border-[#e7eaf0]">
+                            <img :src="imagePreview" class="w-full max-h-[200px] object-cover" alt="Preview" />
+                            <button type="button" @@click="imagePreview = null; imageFile = null; document.getElementById('imageUpload').value = ''"
+                                    class="absolute top-2 right-2 w-7 h-7 bg-white/90 hover:bg-white border border-[#e7eaf0] rounded-full flex items-center justify-center shadow-sm transition-colors">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#17191c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            </button>
+                            <div class="px-3 py-2 bg-gray-50 border-t border-[#e7eaf0]">
+                                <p class="font-['Inter'] text-[12px] text-[#5d6470]" x-text="imageFile?.name"></p>
+                            </div>
+                        </div>
+
+                        <!-- Skip hint -->
+                        <p class="font-['Inter'] text-[12px] text-[#8a929e] mt-2 text-center">You can skip this step — photo is optional.</p>
+                    </div>
+
+                    <!-- Final Summary -->
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-[14px] p-4 flex flex-col gap-3">
+                        <p class="font-['Inter'] font-[700] text-[13px] text-[#17191c]">Request Summary</p>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex gap-2">
+                                <span class="font-['Inter'] text-[12px] text-[#8a929e] w-20">Category</span>
+                                <span class="font-['Inter'] text-[12px] font-[550] text-[#17191c]" x-text="category"></span>
+                            </div>
+                            <div class="flex gap-2">
+                                <span class="font-['Inter'] text-[12px] text-[#8a929e] w-20">Priority</span>
+                                <span class="font-['Inter'] text-[12px] font-[550] text-[#17191c]" x-text="priority"></span>
+                            </div>
+                            <div class="flex gap-2">
+                                <span class="font-['Inter'] text-[12px] text-[#8a929e] w-20">Schedule</span>
+                                <span class="font-['Inter'] text-[12px] font-[550] text-[#17191c]" x-text="selectedDate ? formatScheduleDate(selectedDate, { month: 'short', day: 'numeric' }) + ' · ' + selectedTimeRange : '—'"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="shrink-0 flex gap-3 px-4 sm:px-6 py-4 border-t border-[#f0f2f5] bg-gray-50/50">
+                    <button type="button" @@click="step > 1 ? prevStep() : closeModal()"
+                            class="flex-1 bg-white border border-[#e7eaf0] hover:bg-gray-50 transition-colors text-[#17191c] font-['Inter'] font-[550] text-[14px] h-[42px] rounded-[10px]"
+                            x-text="step > 1 ? '← Back' : 'Cancel'">
+                    </button>
+                    <button x-show="step < 3" type="button" @@click="nextStep()"
+                            :disabled="!canNext()"
+                            :class="canNext() ? 'bg-[#0878f9] hover:bg-blue-600 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'"
+                            class="flex-1 font-['Inter'] font-[550] text-[14px] h-[42px] rounded-[10px] transition-colors">
+                        Continue →
+                    </button>
+                    <button x-show="step === 3" type="submit"
+                            class="flex flex-1 items-center justify-center gap-2 bg-[#0878f9] hover:bg-blue-600 transition-colors text-white font-['Inter'] font-[550] text-[14px] h-[42px] rounded-[10px]">
+                        Submit request <partial name="~/Views/Shared/_AppIcon.cshtml" model='"rocket"' />
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+}

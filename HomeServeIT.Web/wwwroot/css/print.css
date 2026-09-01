@@ -1,0 +1,42 @@
+@media print {
+    /* Hide everything by default */
+    body * {
+        visibility: hidden;
+    }
+    
+    /* Make the printed content visible */
+    #print-area, #print-area * {
+        visibility: visible;
+    }
+    
+    /* Position the print area nicely */
+    #print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 2cm;
+    }
+
+    /* Hide specific UI elements that shouldn't be printed even if inside print-area */
+    .no-print {
+        display: none !important;
+    }
+    
+    /* Ensure backgrounds print properly if needed */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    
+    /* Reset background colors for cleaner print if desired */
+    body {
+        background-color: white !important;
+    }
+    
+    /* Remove shadows */
+    * {
+        box-shadow: none !important;
+    }
+}

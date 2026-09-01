@@ -1,0 +1,125 @@
+@model HomeServeIT.Web.Areas.Customer.Models.CustomerBillsViewModel
+@{
+    ViewData["Title"] = "Bills and payments";
+    var allCount = Model.Invoices.Count;
+    var unpaidCount = Model.Invoices.Count(i => i.PaymentStatus == "Unpaid" && i.DateIssued.AddDays(14) >= DateTime.Today);
+    var overdueCount = Model.Invoices.Count(i => i.PaymentStatus == "Unpaid" && i.DateIssued.AddDays(14) < DateTime.Today);
+    var paidCount = Model.Invoices.Count(i => i.PaymentStatus == "Paid");
+}
+
+<div class="flex flex-col p-[32px] max-w-7xl mx-auto w-full gap-[32px]" x-data="{ currentTab: 'All' }">
+    
+    <!-- Page Header -->
+    <div class="flex flex-col gap-[4px]">
+        <h1 class="font-['Inter'] font-bold text-[28px] leading-[35px] tracking-tight text-[#17191c]">
+            Bills and payments
+        </h1>
+        <p class="font-['Inter'] text-[15px] leading-[21px] text-[#5d6470]">
+            Your invoices and payment history.
+        </p>
+    </div>
+
+    <!-- Outstanding Balance Banner -->
+    @if (Model.TotalOutstanding > 0)
+    {
+        <div class="bg-red-50 border border-red-100 rounded-[12px] p-[20px] shadow-sm flex items-center justify-between">
+            <div class="flex items-center gap-[16px]">
+                <div class="w-[40px] h-[40px] bg-red-100 rounded-full flex items-center justify-center text-red-600">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                </div>
+                <div class="flex flex-col">
+                    <span class="font-['Inter'] font-[650] text-[16px] text-red-800">Outstanding balance</span>
+                    <span class="font-['Inter'] text-[14px] text-red-600">You have unpaid or overdue invoices.</span>
+                </div>
+            </div>
+            <span class="font-['Inter'] font-bold text-[24px] text-red-800">@Model.TotalOutstanding.ToString("C2", new System.Globalization.CultureInfo("en-PH"))</span>
+        </div>
+    }
+
+    <!-- Tabs -->
+    <div class="flex gap-[8px] bg-gray-50/50 p-[4px] rounded-[10px] border border-[#e7eaf0] w-fit">
+        <button @@click="currentTab = 'All'" :class="currentTab === 'All' ? 'bg-white text-[#17191c] shadow-sm' : 'text-[#5d6470] hover:text-[#17191c]'" class="px-[12px] py-[6px] rounded-[6px] font-['Inter'] font-[550] text-[13px] flex items-center gap-[6px] transition-colors">
+            All <span class="bg-gray-100 text-gray-600 px-[6px] py-[2px] rounded-full text-[11px]">@allCount</span>
+        </button>
+        <button @@click="currentTab = 'Unpaid'" :class="currentTab === 'Unpaid' ? 'bg-white text-[#17191c] shadow-sm' : 'text-[#5d6470] hover:text-[#17191c]'" class="px-[12px] py-[6px] rounded-[6px] font-['Inter'] font-[550] text-[13px] flex items-center gap-[6px] transition-colors">
+            Unpaid <span class="bg-red-50 text-red-600 px-[6px] py-[2px] rounded-full text-[11px]">@unpaidCount</span>
+        </button>
+        <button @@click="currentTab = 'Paid'" :class="currentTab === 'Paid' ? 'bg-white text-[#17191c] shadow-sm' : 'text-[#5d6470] hover:text-[#17191c]'" class="px-[12px] py-[6px] rounded-[6px] font-['Inter'] font-[550] text-[13px] flex items-center gap-[6px] transition-colors">
+            Paid <span class="bg-green-50 text-green-600 px-[6px] py-[2px] rounded-full text-[11px]">@paidCount</span>
+        </button>
+        <button @@click="currentTab = 'Overdue'" :class="currentTab === 'Overdue' ? 'bg-white text-[#17191c] shadow-sm' : 'text-[#5d6470] hover:text-[#17191c]'" class="px-[12px] py-[6px] rounded-[6px] font-['Inter'] font-[550] text-[13px] flex items-center gap-[6px] transition-colors">
+            Overdue <span class="bg-red-50 text-red-600 px-[6px] py-[2px] rounded-full text-[11px]">@overdueCount</span>
+        </button>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white border border-[#e7eaf0] rounded-[12px] shadow-sm overflow-hidden flex flex-col" data-sort-grid>
+        <!-- Table Header -->
+        <div class="grid grid-cols-[120px_160px_120px_120px_120px_100px_40px] gap-[16px] items-center px-[20px] py-[12px] bg-gray-50/50 border-b border-[#e7eaf0]">
+            <span data-grid-sort="0" class="font-['Inter'] font-[600] text-[12px] uppercase text-[#8a929e]">Invoice</span>
+            <span data-grid-sort="1" class="font-['Inter'] font-[600] text-[12px] uppercase text-[#8a929e]">Job</span>
+            <span data-grid-sort="2" class="font-['Inter'] font-[600] text-[12px] uppercase text-[#8a929e]">Issued</span>
+            <span data-grid-sort="3" class="font-['Inter'] font-[600] text-[12px] uppercase text-[#8a929e]">Due</span>
+            <span data-grid-sort="4" class="font-['Inter'] font-[600] text-[12px] uppercase text-[#8a929e]">Amount</span>
+            <span data-grid-sort="5" class="font-['Inter'] font-[600] text-[12px] uppercase text-[#8a929e]">Status</span>
+            <span class="font-['Inter'] font-[600] text-[12px] uppercase text-[#8a929e]"></span>
+        </div>
+
+        <!-- Rows -->
+        <div class="flex flex-col">
+            @foreach (var invoice in Model.Invoices)
+            {
+                var dueDate = invoice.DateIssued.AddDays(14);
+                var isOverdue = invoice.PaymentStatus == "Unpaid" && dueDate < DateTime.Today;
+                var displayStatus = invoice.PaymentStatus;
+                
+                if (isOverdue)
+                {
+                    displayStatus = "Overdue";
+                }
+                
+                <div data-sort-row x-show="currentTab === 'All' || currentTab === '@displayStatus'" class="grid grid-cols-[120px_160px_120px_120px_120px_100px_40px] gap-[16px] items-center px-[20px] py-[16px] border-b border-[#e7eaf0] hover:bg-gray-50/50 transition-colors cursor-pointer last:border-0 group">
+                    <span data-sort-cell data-sort-value="@invoice.InvoiceID" class="font-['Inter'] font-[500] text-[14px] text-[#17191c]">INV-@invoice.DateIssued.Year-@invoice.InvoiceID.ToString("D4")</span>
+                    <span data-sort-cell data-sort-value="@invoice.RequestID" class="font-['Inter'] text-[14px] text-[#5d6470]">SR-@invoice.DateIssued.Year-@invoice.RequestID.ToString("D4")</span>
+                    <span data-sort-cell data-sort-value="@invoice.DateIssued.ToString("O")" class="font-['Inter'] text-[14px] text-[#5d6470]">@invoice.DateIssued.ToString("MMM d, yyyy")</span>
+                    <span data-sort-cell data-sort-value="@dueDate.ToString("O")" class="font-['Inter'] text-[14px] @(isOverdue ? "text-red-600 font-[500]" : "text-[#5d6470]")">@dueDate.ToString("MMM d, yyyy")</span>
+                    <span data-sort-cell data-sort-value="@invoice.TotalAmount" class="font-['Inter'] font-[500] text-[14px] text-[#17191c]">@invoice.TotalAmount.ToString("C2", new System.Globalization.CultureInfo("en-PH"))</span>
+                    
+                    @{
+                        var statusClass = "bg-gray-100 text-gray-700";
+                        var dotClass = "bg-gray-400";
+                        if (displayStatus == "Unpaid")
+                        {
+                            statusClass = "bg-red-50 text-red-700";
+                            dotClass = "bg-red-500";
+                        }
+                        else if (displayStatus == "Paid")
+                        {
+                            statusClass = "bg-green-50 text-green-700";
+                            dotClass = "bg-green-500";
+                        }
+                        else if (displayStatus == "Overdue")
+                        {
+                            statusClass = "bg-red-50 text-red-700";
+                            dotClass = "bg-red-500";
+                        }
+                    }
+                    
+                    <span data-sort-cell data-sort-value="@displayStatus" class="inline-flex w-fit items-center gap-[6px] px-[8px] py-[2px] rounded-full @statusClass font-['Inter'] font-[600] text-[11px]">
+                        <span class="w-[6px] h-[6px] rounded-full @dotClass"></span> @displayStatus
+                    </span>
+
+                    <button class="opacity-0 group-hover:opacity-100 transition-opacity p-[6px] rounded-full hover:bg-gray-200 text-[#5d6470] hover:text-[#17191c]" title="Download PDF" onclick="window.print(); event.stopPropagation();">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </button>
+                </div>
+            }
+            @if (!Model.Invoices.Any())
+            {
+                <div class="px-[20px] py-[32px] text-center font-['Inter'] text-[#8a929e] text-[14px]">
+                    No bills or payments found.
+                </div>
+            }
+        </div>
+    </div>
+</div>

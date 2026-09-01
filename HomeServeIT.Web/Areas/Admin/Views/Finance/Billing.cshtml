@@ -1,0 +1,161 @@
+@model IEnumerable<HomeServeIT.Web.Models.Invoice>
+@{
+    ViewData["Title"] = "Billing and payments";
+    var totalOutstanding = Model.Where(i => i.PaymentStatus == "Unpaid").Sum(i => i.TotalAmount);
+    var paidThisMonth = Model.Where(i => i.PaymentStatus == "Paid" && i.DateIssued.Month == DateTime.Today.Month && i.DateIssued.Year == DateTime.Today.Year).Sum(i => i.TotalAmount);
+    var overdueCount = Model.Count(i => i.PaymentStatus == "Unpaid" && i.DateIssued.AddDays(14) < DateTime.Today);
+    var completedUnbilled = ViewBag.CompletedUnbilledJobs as IEnumerable<HomeServeIT.Web.Models.ServiceRequest> ?? new List<HomeServeIT.Web.Models.ServiceRequest>();
+}
+
+<div class="content-stretch flex flex-col items-start max-w-7xl p-[32px] relative shrink-0 w-full mx-auto">
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="w-full mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl font-['Inter'] text-sm flex items-center gap-2 shadow-sm">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            @TempData["SuccessMessage"]
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="w-full mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl font-['Inter'] text-sm flex items-center gap-2 shadow-sm">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            @TempData["ErrorMessage"]
+        </div>
+    }
+
+    <div class="flex items-start justify-between w-full">
+        <div>
+            <h1 class="font-['Inter'] font-[650] leading-[42px] text-[#17191c] text-[28px]">Billing and payments</h1>
+            <p class="font-['Inter'] font-normal text-[#5d6470] text-[14px] mt-1">Manage invoices and record payments from completed service jobs.</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mt-8">
+        <div class="bg-white border border-[#e7eaf0] rounded-[16px] p-[24px] shadow-sm hover:shadow-md transition-shadow">
+            <p class="font-['Inter'] font-[550] text-[#5d6470] text-[14px]">Total outstanding</p>
+            <p class="font-['Inter'] font-bold text-[#d13b3b] text-[32px] mt-2">@totalOutstanding.ToString("C2", new System.Globalization.CultureInfo("en-PH"))</p>
+        </div>
+        <div class="bg-white border border-[#e7eaf0] rounded-[16px] p-[24px] shadow-sm hover:shadow-md transition-shadow">
+            <p class="font-['Inter'] font-[550] text-[#5d6470] text-[14px]">Paid this month</p>
+            <p class="font-['Inter'] font-bold text-[#178a4b] text-[32px] mt-2">@paidThisMonth.ToString("C0", new System.Globalization.CultureInfo("en-PH"))</p>
+        </div>
+        <div class="bg-white border border-[#e7eaf0] rounded-[16px] p-[24px] shadow-sm hover:shadow-md transition-shadow">
+            <p class="font-['Inter'] font-[550] text-[#5d6470] text-[14px]">Overdue invoices</p>
+            <p class="font-['Inter'] font-bold text-[#a96500] text-[32px] mt-2">@overdueCount</p>
+        </div>
+    </div>
+
+    @if (completedUnbilled.Any())
+    {
+        <section class="mt-6 w-full overflow-hidden rounded-2xl bg-amber-50/70 ring-1 ring-inset ring-amber-200" aria-labelledby="invoice-exceptions-title">
+            <div class="flex items-start gap-3 px-5 py-4">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-amber-700 shadow-sm ring-1 ring-amber-100">
+                    <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+                </span>
+                <div class="min-w-0 flex-1">
+                    <h2 id="invoice-exceptions-title" class="text-sm font-bold text-amber-950">
+                        @completedUnbilled.Count() legacy billing exception@(completedUnbilled.Count() == 1 ? "" : "s")
+                    </h2>
+                    <p class="mt-0.5 text-xs leading-5 text-amber-800">Completed without an approved invoice. Archive old test records or review the job before taking action.</p>
+                </div>
+            </div>
+
+            <div class="divide-y divide-amber-200/70 border-t border-amber-200/70 bg-white/65">
+                @foreach (var job in completedUnbilled)
+                {
+                    <div class="flex flex-col gap-3 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="font-['JetBrains_Mono'] text-xs font-bold text-amber-800">JOB-@job.RequestID.ToString("D4")</span>
+                                <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">No invoice</span>
+                            </div>
+                            <p class="mt-1 truncate text-sm font-semibold text-[#17191c]">@job.Customer.FirstName @job.Customer.LastName · @job.IssueDescription</p>
+                            <p class="mt-0.5 text-[11px] text-[#69717d]">Completed @(job.CompletedDate?.ToString("MMM d, yyyy 'at' h:mm tt") ?? "before completion tracking")</p>
+                        </div>
+                        <div class="flex shrink-0 items-center gap-2">
+                            <a asp-area="Admin" asp-controller="Operations" asp-action="ServiceRequests" class="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-[#5d6470] ring-1 ring-inset ring-[#dfe3ea] transition hover:bg-gray-50">Review job</a>
+                            <form asp-area="Admin" asp-controller="Operations" asp-action="ArchiveRequest" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="requestId" value="@job.RequestID" />
+                                <button type="submit" onclick="return confirm('Archive JOB-@job.RequestID.ToString("D4")? Its audit history will be preserved.')" class="inline-flex items-center gap-1.5 rounded-lg bg-amber-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-amber-800">
+                                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>
+                                    Archive legacy record
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+
+    <div class="w-full mt-6 bg-white border border-[#e7eaf0] rounded-[16px] overflow-hidden shadow-sm">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b border-[#e7eaf0]">
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Invoice</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Customer</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Job</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Issued</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Due</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Amount</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Status</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Action</th>
+                </tr>
+            </thead>
+            <tbody class="font-['Inter'] text-[13px] text-[#17191c]">
+                @foreach (var invoice in Model)
+                {
+                    var isOverdue = invoice.PaymentStatus == "Unpaid" && invoice.DateIssued.AddDays(14) < DateTime.Today;
+                    var rowStatus = isOverdue ? "Overdue" : invoice.PaymentStatus;
+                    var statusClass = rowStatus == "Paid" ? "bg-green-50 text-green-700" : (rowStatus == "Overdue" ? "bg-red-50 text-red-700" : "bg-yellow-50 text-yellow-700");
+                    var dotClass = rowStatus == "Paid" ? "bg-green-500" : (rowStatus == "Overdue" ? "bg-red-500" : "bg-yellow-500");
+
+                    <tr class="border-b border-[#e7eaf0] last:border-0 hover:bg-gray-50/50 transition-colors">
+                        <td class="py-4 px-6 font-['JetBrains_Mono'] font-medium text-[#0878f9]">INV-@invoice.DateIssued.Year-@invoice.InvoiceID.ToString("D4")</td>
+                        <td class="py-4 px-6 font-semibold">@invoice.ServiceRequest?.Customer?.FirstName @invoice.ServiceRequest?.Customer?.LastName</td>
+                        <td class="py-4 px-6 font-['JetBrains_Mono'] text-[#8a929e] text-[12px]">JOB-@invoice.ServiceRequest?.RequestID.ToString("D4")</td>
+                        <td class="py-4 px-6 text-[#5d6470]">@invoice.DateIssued.ToString("MMM d, yyyy")</td>
+                        <td class="py-4 px-6 text-[#5d6470] @(isOverdue ? "text-red-600 font-semibold" : "")">@invoice.DateIssued.AddDays(14).ToString("MMM d, yyyy")</td>
+                        <td class="py-4 px-6 font-semibold">@invoice.TotalAmount.ToString("C2", new System.Globalization.CultureInfo("en-PH"))</td>
+                        <td class="py-4 px-6">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium @statusClass">
+                                <span class="w-1.5 h-1.5 rounded-full @dotClass"></span> @rowStatus
+                            </span>
+                        </td>
+                        <td class="py-4 px-6">
+                            @if (invoice.PaymentStatus != "Paid")
+                            {
+                                <form method="post" asp-action="MarkAsPaid" asp-controller="Finance" asp-area="Admin" class="inline">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="invoiceId" value="@invoice.InvoiceID" />
+                                    <button type="submit"
+                                            onclick="return confirm('Mark this invoice as Paid?')"
+                                            class="text-[12px] font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 whitespace-nowrap">
+                                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+                                        Mark Paid
+                                    </button>
+                                </form>
+                            }
+                            else
+                            {
+                                <span class="inline-flex items-center gap-1 text-[12px] text-[#8a929e]"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 4 4L19 6"/></svg>Settled</span>
+                            }
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                {
+                    <tr>
+                        <td colspan="8" class="py-12 text-center text-[#8a929e] font-['Inter']">
+                            <div class="flex flex-col items-center gap-2">
+                                <svg width="36" height="36" fill="none" stroke="#cbd5e0" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                                <p>No invoices yet.</p>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>

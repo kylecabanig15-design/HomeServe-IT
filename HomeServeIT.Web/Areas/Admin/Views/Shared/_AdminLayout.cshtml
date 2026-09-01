@@ -1,0 +1,134 @@
+@using Microsoft.AspNetCore.Identity
+@using HomeServeIT.Web.Models
+@inject UserManager<ApplicationUser> UserManager
+@inject HomeServeIT.Web.Services.NotificationService NotificationService
+@{
+    var appUser = await UserManager.GetUserAsync(User);
+    var fullName = string.IsNullOrWhiteSpace(appUser?.FullName) ? (appUser?.UserName ?? "User") : appUser.FullName;
+    var email = appUser?.Email ?? "";
+    var initial = !string.IsNullOrEmpty(fullName) ? fullName.Substring(0, 1).ToUpper() : "U";
+    var firstName = fullName.Split(' ').FirstOrDefault() ?? "User";
+    var notificationFeed = appUser == null
+        ? new NotificationFeedViewModel()
+        : await NotificationService.GetFeedAsync(appUser, take: 5);
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Admin - HomeServe IT</title>
+    
+    <!-- Tailwind CSS (compiled) -->
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+    
+    <!-- Alpine Plugins & Core -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@@alpinejs/intersect@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="~/js/site.js" asp-append-version="true"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+</head>
+<body class="bg-[#f5f7fa] text-dark font-sans antialiased relative min-h-screen flex flex-col">
+    
+    <!-- Shell -->
+    <div class="content-stretch flex flex-col flex-1 items-start relative w-full min-h-screen">
+        
+        <!-- Header -->
+        <header class="bg-white border-[#e7eaf0] border-b border-solid content-stretch flex gap-[12px] h-[64px] items-center px-[16px] w-full z-50 sticky top-0 shrink-0">
+            <!-- Logo / Title -->
+            <div class="content-stretch flex gap-[10px] items-center pr-[16px] relative shrink-0 w-[236px]">
+                <div class="bg-[#0878f9] content-stretch flex items-center justify-center relative rounded-[8px] shrink-0 size-[28px] overflow-hidden">
+                    <img src="~/img/logo.svg" alt="Logo" class="w-full h-full object-contain" />
+                </div>
+                <div class="content-stretch flex flex-col items-start relative shrink-0">
+                    <p class="font-['Inter'] font-bold leading-[22.5px] relative shrink-0 text-[#17191c] text-[15px] tracking-[-0.375px] whitespace-nowrap">
+                        HomeServe IT
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Search bar -->
+            <div class="bg-[#f8fafc] border border-[#e7eaf0] border-solid content-stretch flex flex-1 max-w-[384px] gap-[8px] h-[32px] items-center px-[12px] relative rounded-[10px]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a929e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative shrink-0">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" placeholder="Search…" class="bg-transparent border-none outline-none font-['Inter'] font-normal leading-[19.5px] text-[#8a929e] text-[13px] flex-1 min-w-0" />
+                <div class="bg-white border border-[#e7eaf0] border-solid content-stretch flex flex-col items-start px-[4px] py-[2px] relative rounded-[4px] shrink-0">
+                    <p class="font-['JetBrains_Mono'] font-normal leading-[16.5px] relative shrink-0 text-[#8a929e] text-[11px] whitespace-nowrap">
+                        ⌘K
+                    </p>
+                </div>
+            </div>
+            
+            <div class="flex-1 min-w-px relative"></div>
+            
+            <partial name="~/Views/Shared/_NotificationTrayPartial.cshtml" model="notificationFeed" />
+            <!-- Admin Profile -->
+            <div class="relative" x-data="{ open: false }" @@click.outside="open = false">
+                <button type="button" @@click="open = !open" :aria-expanded="open" aria-haspopup="true" class="content-stretch flex gap-[8px] h-[36px] items-center pl-[4px] pr-[10px] relative rounded-[10px] shrink-0 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-4 focus:ring-blue-100">
+                    <div class="bg-[#0878f9] flex items-center justify-center rounded-full shrink-0 w-[28px] h-[28px] min-w-[28px]">
+                        <span class="font-['Inter'] font-bold text-[11px] text-white leading-none select-none">@initial</span>
+                    </div>
+                    <div class="content-stretch flex flex-col items-center relative shrink-0">
+                        <p class="font-['Inter'] font-[550] leading-[19.5px] relative shrink-0 text-[#17191c] text-[13px] text-center whitespace-nowrap">
+                            @firstName
+                        </p>
+                    </div>
+                </button>
+                
+                <!-- Profile Dropdown -->
+                <div x-show="open" 
+                     x-transition:enter="transition ease-out duration-100"
+                     x-transition:enter-start="opacity-0 scale-95"
+                     x-transition:enter-end="opacity-100 scale-100"
+                     x-transition:leave="transition ease-in duration-75"
+                     x-transition:leave-start="opacity-100 scale-100"
+                     x-transition:leave-end="opacity-0 scale-95"
+                     style="display: none; width: 208px;" 
+                     class="ui-menu-panel absolute right-0 top-[44px] flex flex-col p-1 z-50">
+                     
+                    <div class="flex flex-col p-3 border-b border-[#e7eaf0] mb-1">
+                        <p class="font-['Inter'] font-[650] text-[#17191c] text-[13px] truncate">@fullName</p>
+                        <p class="font-['Inter'] text-[#5d6470] text-[12px] truncate mt-0.5">@email</p>
+                    </div>
+                    
+                    <a asp-area="Admin" asp-controller="System" asp-action="Settings" class="ui-menu-item">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#5d6470]"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/><path d="M12 2v2"/><path d="M12 22v-2"/><path d="m17 20.66-1-1.73"/><path d="M11 10.27 7 3.34"/><path d="m20.66 17-1.73-1"/><path d="m3.34 7 1.73 1"/><path d="M14 12h8"/><path d="M2 12h2"/><path d="m20.66 7-1.73 1"/><path d="m3.34 17 1.73-1"/><path d="m17 3.34-1 1.73"/><path d="m11 13.73-4 6.93"/></svg>
+                        Profile &amp; settings
+                    </a>
+                    
+                    <form class="m-0" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
+                        <button type="submit" class="ui-menu-item hover:!bg-red-50 hover:!text-red-700">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#5d6470] group-hover:text-red-700"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                            Sign out
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Body -->
+        <div class="content-stretch flex items-stretch relative w-full flex-1">
+            
+            <!-- Sidebar -->
+            <aside class="bg-white border-[#e7eaf0] border-r border-solid content-stretch flex flex-col items-stretch px-[8px] py-[12px] w-[248px] overflow-y-auto sticky top-[64px] h-[calc(100vh-64px)] shrink-0 z-40">
+                <partial name="_AdminSidebarPartial" model="notificationFeed" />
+            </aside>
+            
+            <!-- Main Content Area -->
+            <main class="content-stretch flex flex-1 flex-col items-stretch min-w-px relative">
+                @RenderBody()
+            </main>
+            
+        </div>
+    </div>
+    
+    <!-- Alpine.js Modal Portals etc -->
+    @await RenderSectionAsync("Scripts", required: false)
+    <partial name="~/Views/Shared/_ToastPartial.cshtml" />
+</body>
+</html>

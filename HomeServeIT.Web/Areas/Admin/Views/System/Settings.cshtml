@@ -1,0 +1,134 @@
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<div class="content-stretch flex flex-col items-start max-w-7xl p-[32px] relative shrink-0 w-full mx-auto">
+    <!-- Header -->
+    <div class="flex items-start justify-between w-full">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <h1 class="font-['Inter'] font-[650] leading-[42px] relative shrink-0 text-[#17191c] text-[28px] whitespace-nowrap">
+                Settings
+            </h1>
+            <p class="font-['Inter'] font-normal leading-[21px] mt-1 relative shrink-0 text-[#5d6470] text-[14px] whitespace-nowrap">
+                Configure application preferences and system settings.
+            </p>
+        </div>
+    </div>
+    
+    <div x-data="{ activeTab: 'general' }" class="flex flex-col md:flex-row gap-8 w-full mt-8 items-start">
+        <!-- Vertical Tabs -->
+        <div class="w-full md:w-[240px] shrink-0 flex flex-col gap-1">
+            <button x-on:click="activeTab = 'general'" :class="{ 'bg-blue-50 text-[#0878f9]': activeTab === 'general', 'text-[#5d6470] hover:bg-gray-50 hover:text-[#17191c]': activeTab !== 'general' }" class="flex items-center justify-between px-4 py-2.5 rounded-[8px] font-['Inter'] font-[550] text-[14px] transition-colors">
+                General
+            </button>
+            <button x-on:click="activeTab = 'company'" :class="{ 'bg-blue-50 text-[#0878f9]': activeTab === 'company', 'text-[#5d6470] hover:bg-gray-50 hover:text-[#17191c]': activeTab !== 'company' }" class="flex items-center justify-between px-4 py-2.5 rounded-[8px] font-['Inter'] font-[550] text-[14px] transition-colors">
+                Company profile
+            </button>
+            <button x-on:click="activeTab = 'notifications'" :class="{ 'bg-blue-50 text-[#0878f9]': activeTab === 'notifications', 'text-[#5d6470] hover:bg-gray-50 hover:text-[#17191c]': activeTab !== 'notifications' }" class="flex items-center justify-between px-4 py-2.5 rounded-[8px] font-['Inter'] font-[550] text-[14px] transition-colors">
+                Notifications
+            </button>
+            <button x-on:click="activeTab = 'security'" :class="{ 'bg-blue-50 text-[#0878f9]': activeTab === 'security', 'text-[#5d6470] hover:bg-gray-50 hover:text-[#17191c]': activeTab !== 'security' }" class="flex items-center justify-between px-4 py-2.5 rounded-[8px] font-['Inter'] font-[550] text-[14px] transition-colors">
+                Security
+            </button>
+            <button x-on:click="activeTab = 'integrations'" :class="{ 'bg-blue-50 text-[#0878f9]': activeTab === 'integrations', 'text-[#5d6470] hover:bg-gray-50 hover:text-[#17191c]': activeTab !== 'integrations' }" class="flex items-center justify-between px-4 py-2.5 rounded-[8px] font-['Inter'] font-[550] text-[14px] transition-colors">
+                Integrations
+            </button>
+        </div>
+        
+        <!-- Settings Form: General -->
+        <div x-show="activeTab === 'general'" class="flex-1 w-full bg-white border border-[#e7eaf0] rounded-[16px] shadow-sm flex flex-col" style="display: none;">
+            <div class="p-6 border-b border-[#e7eaf0]">
+                <h2 class="font-['Inter'] font-[650] text-[#17191c] text-[18px]">General settings</h2>
+                <p class="font-['Inter'] font-normal text-[#5d6470] text-[13px] mt-1">Manage core system preferences and regional settings.</p>
+            </div>
+            
+            <form method="post" asp-action="UpdateSettings" asp-controller="System" asp-area="Admin">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="section" value="general" />
+                <div class="p-6 flex flex-col gap-6">
+                    <!-- System name -->
+                    <div class="flex flex-col gap-1.5">
+                        <label class="font-['Inter'] font-[550] text-[#5d6470] text-[13px]">System name</label>
+                        <input type="text" name="systemName" value="HomeServe IT" class="w-full max-w-md bg-white border border-[#e7eaf0] rounded-[8px] h-[40px] px-[12px] font-['Inter'] text-[14px] text-[#17191c] outline-none focus:border-[#0878f9] transition-colors" />
+                    </div>
+                    
+                    <!-- Timezone -->
+                    <div class="flex flex-col gap-1.5">
+                        <label class="font-['Inter'] font-[550] text-[#5d6470] text-[13px]">Timezone</label>
+                        <select name="timezone" class="ui-select max-w-md text-[14px]">
+                            <option value="Asia/Manila">Asia/Manila (UTC+08:00)</option>
+                            <option value="UTC">UTC (UTC+00:00)</option>
+                            <option value="America/New_York">Eastern Time (UTC-05:00)</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Currency -->
+                    <div class="flex flex-col gap-1.5">
+                        <label class="font-['Inter'] font-[550] text-[#5d6470] text-[13px]">Currency</label>
+                        <select name="currency" class="ui-select max-w-md text-[14px]">
+                            <option value="PHP">Philippine Peso (₱)</option>
+                            <option value="USD">US Dollar ($)</option>
+                            <option value="EUR">Euro (€)</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Support email -->
+                    <div class="flex flex-col gap-1.5">
+                        <label class="font-['Inter'] font-[550] text-[#5d6470] text-[13px]">Support email</label>
+                        <input type="email" name="supportEmail" value="support@homeserveit.ph" class="w-full max-w-md bg-white border border-[#e7eaf0] rounded-[8px] h-[40px] px-[12px] font-['Inter'] text-[14px] text-[#17191c] outline-none focus:border-[#0878f9] transition-colors" />
+                    </div>
+                </div>
+                
+                <div class="p-6 border-t border-[#e7eaf0] bg-gray-50/50 flex items-center justify-end gap-3 rounded-b-[16px]">
+                    <button type="button" class="bg-white border border-[#e7eaf0] hover:bg-gray-50 transition-colors text-[#17191c] font-['Inter'] font-semibold text-[14px] px-[16px] py-[8px] rounded-[8px] shadow-sm">
+                        Cancel
+                    </button>
+                    <button type="submit" class="bg-[#0878f9] hover:bg-blue-600 transition-colors text-white font-['Inter'] font-semibold text-[14px] px-[16px] py-[8px] rounded-[8px] shadow-sm">
+                        Save changes
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Settings Form: Company -->
+        <div x-show="activeTab === 'company'" class="flex-1 w-full bg-white border border-[#e7eaf0] rounded-[16px] shadow-sm flex flex-col" style="display: none;">
+            <div class="p-6 border-b border-[#e7eaf0]">
+                <h2 class="font-['Inter'] font-[650] text-[#17191c] text-[18px]">Company profile</h2>
+                <p class="font-['Inter'] font-normal text-[#5d6470] text-[13px] mt-1">Manage company details, address, and logo.</p>
+            </div>
+            
+            <form method="post" asp-action="UpdateSettings" asp-controller="System" asp-area="Admin">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="section" value="company" />
+                <div class="p-6 flex flex-col gap-6">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="font-['Inter'] font-[550] text-[#5d6470] text-[13px]">Company name</label>
+                        <input type="text" name="companyName" value="HomeServe IT Solutions" class="w-full max-w-md bg-white border border-[#e7eaf0] rounded-[8px] h-[40px] px-[12px] font-['Inter'] text-[14px] text-[#17191c] outline-none focus:border-[#0878f9] transition-colors" />
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label class="font-['Inter'] font-[550] text-[#5d6470] text-[13px]">Company Address</label>
+                        <input type="text" name="companyAddress" value="Manila, Philippines" class="w-full max-w-md bg-white border border-[#e7eaf0] rounded-[8px] h-[40px] px-[12px] font-['Inter'] text-[14px] text-[#17191c] outline-none focus:border-[#0878f9] transition-colors" />
+                    </div>
+                </div>
+                
+                <div class="p-6 border-t border-[#e7eaf0] bg-gray-50/50 flex items-center justify-end gap-3 rounded-b-[16px]">
+                    <button type="button" class="bg-white border border-[#e7eaf0] hover:bg-gray-50 transition-colors text-[#17191c] font-['Inter'] font-semibold text-[14px] px-[16px] py-[8px] rounded-[8px] shadow-sm">
+                        Cancel
+                    </button>
+                    <button type="submit" class="bg-[#0878f9] hover:bg-blue-600 transition-colors text-white font-['Inter'] font-semibold text-[14px] px-[16px] py-[8px] rounded-[8px] shadow-sm">
+                        Save changes
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Settings Form: Placeholder for others -->
+        <div x-show="['notifications', 'security', 'integrations'].includes(activeTab)" class="flex-1 w-full bg-white border border-[#e7eaf0] rounded-[16px] shadow-sm flex flex-col items-center justify-center p-12 text-center" style="display: none;">
+            <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            </div>
+            <h3 class="font-['Inter'] font-semibold text-[#17191c] text-[16px]">Under Construction</h3>
+            <p class="font-['Inter'] text-[#5d6470] text-[14px] mt-2">This settings section will be available soon.</p>
+        </div>
+    </div>
+</div>

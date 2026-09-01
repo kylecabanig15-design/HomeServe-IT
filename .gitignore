@@ -1,0 +1,43 @@
+# .gitignore for HomeServe IT - ASP.NET Core MVC Project
+
+## Build & Compilation Artifacts
+bin/
+obj/
+
+## User-specific Visual Studio / Rider files
+*.user
+*.suo
+.vs/
+.idea/
+
+## .NET SDK tools
+.dotnet/
+
+## EF Core tooling
+*.sqlite
+
+## Node / Tailwind build artifacts
+node_modules/
+HomeServeIT.Web/wwwroot/css/app.css
+
+## Secrets - NEVER commit these
+appsettings.Development.json
+HomeServeIT.Web/appsettings.Development.json
+secrets.json
+*.pfx
+*.key
+
+## OS artifacts
+.DS_Store
+Thumbs.db
+
+## Scratch / temp files
+scratch.pdf
+*.csx
+
+## Log files
+*.log
+logs/
+
+## Published output
+publish/

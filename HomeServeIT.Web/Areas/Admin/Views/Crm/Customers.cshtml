@@ -1,0 +1,149 @@
+@model IEnumerable<HomeServeIT.Web.Models.Customer>
+@{
+    ViewData["Title"] = "Customers";
+}
+
+<div x-data="{ showAddCustomerModal: false }" class="content-stretch flex flex-col items-start max-w-7xl p-[32px] relative shrink-0 w-full mx-auto">
+    <!-- Header -->
+    <div class="flex items-start justify-between w-full">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <h1 class="font-['Inter'] font-[650] leading-[42px] relative shrink-0 text-[#17191c] text-[28px] whitespace-nowrap">
+                Customers
+            </h1>
+            <p class="font-['Inter'] font-normal leading-[21px] mt-1 relative shrink-0 text-[#5d6470] text-[14px] whitespace-nowrap">
+                View and manage customer profiles.
+            </p>
+        </div>
+        <button @@click="showAddCustomerModal = true" class="bg-[#0878f9] hover:bg-blue-600 transition-colors text-white font-['Inter'] font-semibold text-[14px] px-[16px] py-[10px] rounded-[8px] shadow-sm">
+            Add customer
+        </button>
+    </div>
+    
+    <!-- Table -->
+    <div class="w-full mt-8 bg-white border border-[#e7eaf0] rounded-[16px] overflow-hidden shadow-sm">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b border-[#e7eaf0]">
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Customer</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Phone</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Type</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Joined</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Total Jobs</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Status</th>
+                </tr>
+            </thead>
+            <tbody class="font-['Inter'] text-[13px] text-[#17191c]">
+                
+                @foreach (var customer in Model)
+                {
+                    <tr class="border-b border-[#e7eaf0] last:border-0 hover:bg-gray-50 transition-colors cursor-pointer" onclick="window.location.href='@Url.Action("CustomerDetail", "Crm", new { area = "Admin", id = customer.CustomerID })'">
+                        <td class="py-4 px-6">
+                            @{
+                                var fInit = !string.IsNullOrEmpty(customer.FirstName) ? customer.FirstName.Substring(0, 1).ToUpper() : "";
+                                var lInit = !string.IsNullOrEmpty(customer.LastName) ? customer.LastName.Substring(0, 1).ToUpper() : "";
+                                var inits = $"{fInit}{lInit}";
+                                if (string.IsNullOrEmpty(inits)) inits = "C";
+                                var custNameEncoded = System.Net.WebUtility.UrlEncode($"{customer.FirstName} {customer.LastName}".Trim());
+                            }
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs overflow-hidden shrink-0">
+                                    <img src="https://ui-avatars.com/api/?name=@custNameEncoded&background=0878f9&color=fff&size=64&bold=true&font-size=0.4" 
+                                         alt="@customer.FirstName @customer.LastName" 
+                                         class="w-full h-full object-cover"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                                    <span style="display:none;" class="w-full h-full items-center justify-center font-bold text-xs">@inits</span>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-[#17191c]">@customer.FirstName @customer.LastName</p>
+                                    <p class="text-[#8a929e] text-[12px] mt-0.5">@customer.User?.Email</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-4 px-6 text-[#5d6470]">@customer.PhoneNumber</td>
+                        <td class="py-4 px-6">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700">Residential</span>
+                        </td>
+                        <td class="py-4 px-6 text-[#5d6470]">@DateTime.Now.ToString("MMM d, yyyy")</td>
+                        <td class="py-4 px-6 font-semibold">-</td>
+                        <td class="py-4 px-6">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium bg-green-50 text-green-700">
+                                <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Active
+                            </span>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                {
+                    <tr>
+                        <td colspan="6" class="py-8 text-center text-[#8a929e] font-['Inter']">No customers found.</td>
+                    </tr>
+                }
+
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Add Customer Modal -->
+    <div x-show="showAddCustomerModal" style="display: none;" class="relative z-[100]" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div x-show="showAddCustomerModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 bg-gray-500/75 backdrop-blur-sm transition-opacity"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div x-show="showAddCustomerModal" @@click.away="showAddCustomerModal = false" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="relative transform overflow-hidden rounded-[24px] bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-[#e7eaf0]">
+                    <div class="bg-white px-6 pb-6 pt-6">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
+                                <h3 class="text-[20px] font-bold leading-6 text-[#17191c]" id="modal-title">Add new customer</h3>
+                                <div class="mt-2">
+                                    <p class="text-[14px] text-[#5d6470]">Enter customer details to register them in the system.</p>
+                                </div>
+                                <form method="post" asp-action="AddCustomer" asp-controller="Crm" asp-area="Admin" class="mt-6">
+                                    @Html.AntiForgeryToken()
+                                    <div class="space-y-4">
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="block text-sm font-semibold text-[#17191c] mb-1.5">First name</label>
+                                                <input type="text" name="firstName" required class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" placeholder="Juan" />
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Last name</label>
+                                                <input type="text" name="lastName" required class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" placeholder="Dela Cruz" />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Email address</label>
+                                            <input type="email" name="email" required class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" placeholder="juan@example.com" />
+                                        </div>
+                                        <div x-data="{ phoneDigits: '' }">
+                                            <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Phone number</label>
+                                            <div class="flex rounded-lg border border-[#e7eaf0] overflow-hidden focus-within:border-[#0878f9] bg-white">
+                                                <div class="bg-gray-100 px-3 py-2 flex items-center gap-1 border-r border-[#e7eaf0] select-none shrink-0">
+                                                    <svg class="h-3.5 w-3.5 text-[#5d6470]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+                                                    <span class="font-['JetBrains_Mono'] font-bold text-xs text-gray-700">+63</span>
+                                                </div>
+                                                <input type="tel" x-model="phoneDigits" 
+                                                       @@input="phoneDigits = phoneDigits.replace(/\D/g, '').substring(0, 10)"
+                                                       placeholder="9123456789" 
+                                                       maxlength="10" 
+                                                       required 
+                                                       class="w-full px-3 py-2 bg-transparent outline-none text-[14px]" />
+                                            </div>
+                                            <input type="hidden" name="phone" :value="'+63' + phoneDigits" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Address</label>
+                                            <input type="text" name="address" required class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" placeholder="Davao City" />
+                                        </div>
+                                    </div>
+                                    <div class="mt-8 flex items-center justify-end gap-3">
+                                        <button type="button" @@click="showAddCustomerModal = false" class="px-4 py-2 text-[14px] font-semibold text-[#17191c] bg-white border border-[#e7eaf0] rounded-lg shadow-sm hover:bg-gray-50 transition-colors">Cancel</button>
+                                        <button type="submit" class="px-4 py-2 text-[14px] font-semibold text-white bg-[#0878f9] rounded-lg shadow-sm hover:bg-blue-600 transition-colors">Save customer</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

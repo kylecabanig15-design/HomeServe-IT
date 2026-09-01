@@ -1,0 +1,107 @@
+@model HomeServeIT.Web.Models.Invoice
+@{
+    ViewData["Title"] = "Checkout";
+}
+
+<div class="flex flex-col p-[32px] max-w-3xl mx-auto w-full gap-[32px]" x-data="{ selectedMethod: '' }">
+    
+    <!-- Breadcrumb & Header -->
+    <div class="flex flex-col gap-[16px]">
+        <a href="@Url.Action("Details", new { id = Model.InvoiceID })" class="text-[#5d6470] hover:text-[#17191c] font-['Inter'] text-[14px] flex items-center gap-[4px] w-fit transition-colors">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            Back to Details
+        </a>
+        <div class="flex flex-col gap-[4px]">
+            <h1 class="font-['Inter'] font-bold text-[28px] leading-[35px] tracking-tight text-[#17191c]">
+                Checkout
+            </h1>
+            <p class="font-['Inter'] text-[15px] leading-[21px] text-[#5d6470]">
+                Select your preferred payment method to proceed.
+            </p>
+        </div>
+    </div>
+
+    <form asp-action="ProcessPayment" method="post" class="grid grid-cols-1 md:grid-cols-2 gap-[24px]">
+        <input type="hidden" name="id" value="@Model.InvoiceID" />
+        <input type="hidden" name="paymentMethod" :value="selectedMethod" />
+
+        <!-- Left Col: Payment Methods -->
+        <div class="flex flex-col gap-[16px]">
+            <h2 class="font-['Inter'] font-semibold text-[16px] text-[#17191c] mb-[8px]">Payment Method</h2>
+            
+            <!-- Cash -->
+            <label class="bg-white border rounded-[12px] p-[20px] shadow-sm flex items-start gap-[16px] cursor-pointer transition-colors"
+                   :class="selectedMethod === 'Cash' ? 'border-[#0878f9] ring-1 ring-[#0878f9]' : 'border-[#e7eaf0] hover:border-[#c1c7d0]'">
+                <div class="relative flex items-center mt-[2px]">
+                    <input type="radio" name="method_radio" value="Cash" x-model="selectedMethod" class="w-[20px] h-[20px] border-[2px] border-[#c1c7d0] rounded-full appearance-none checked:border-[#0878f9] transition-colors cursor-pointer peer">
+                    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[10px] h-[10px] rounded-full bg-[#0878f9] opacity-0 peer-checked:opacity-100 transition-opacity"></div>
+                </div>
+                <div class="flex flex-col gap-[4px]">
+                    <span class="font-['Inter'] font-semibold text-[15px] text-[#17191c]">Cash on Hand</span>
+                    <span class="font-['Inter'] text-[13px] text-[#5d6470]">Pay directly to the technician when they arrive.</span>
+                </div>
+            </label>
+
+            <!-- Card -->
+            <label class="bg-white border rounded-[12px] p-[20px] shadow-sm flex items-start gap-[16px] cursor-pointer transition-colors"
+                   :class="selectedMethod === 'Card' ? 'border-[#0878f9] ring-1 ring-[#0878f9]' : 'border-[#e7eaf0] hover:border-[#c1c7d0]'">
+                <div class="relative flex items-center mt-[2px]">
+                    <input type="radio" name="method_radio" value="Card" x-model="selectedMethod" class="w-[20px] h-[20px] border-[2px] border-[#c1c7d0] rounded-full appearance-none checked:border-[#0878f9] transition-colors cursor-pointer peer">
+                    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[10px] h-[10px] rounded-full bg-[#0878f9] opacity-0 peer-checked:opacity-100 transition-opacity"></div>
+                </div>
+                <div class="flex flex-col gap-[4px]">
+                    <span class="font-['Inter'] font-semibold text-[15px] text-[#17191c]">Credit / Debit Card</span>
+                    <span class="font-['Inter'] text-[13px] text-[#5d6470]">Pay securely online via Mastercard/Visa.</span>
+                </div>
+            </label>
+
+            <!-- GCash -->
+            <label class="bg-white border rounded-[12px] p-[20px] shadow-sm flex items-start gap-[16px] cursor-pointer transition-colors"
+                   :class="selectedMethod === 'GCash' ? 'border-[#0878f9] ring-1 ring-[#0878f9]' : 'border-[#e7eaf0] hover:border-[#c1c7d0]'">
+                <div class="relative flex items-center mt-[2px]">
+                    <input type="radio" name="method_radio" value="GCash" x-model="selectedMethod" class="w-[20px] h-[20px] border-[2px] border-[#c1c7d0] rounded-full appearance-none checked:border-[#0878f9] transition-colors cursor-pointer peer">
+                    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[10px] h-[10px] rounded-full bg-[#0878f9] opacity-0 peer-checked:opacity-100 transition-opacity"></div>
+                </div>
+                <div class="flex flex-col gap-[4px]">
+                    <span class="font-['Inter'] font-semibold text-[15px] text-[#17191c]">GCash</span>
+                    <span class="font-['Inter'] text-[13px] text-[#5d6470]">Pay using your GCash E-Wallet.</span>
+                </div>
+            </label>
+        </div>
+
+        <!-- Right Col: Summary & Submit -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="bg-white border border-[#e7eaf0] rounded-[12px] p-[24px] shadow-sm flex flex-col gap-[20px] sticky top-[24px]">
+                <h2 class="font-['Inter'] font-semibold text-[18px] text-[#17191c]">Order Summary</h2>
+                
+                <div class="flex flex-col gap-[16px] border-b border-[#e7eaf0] pb-[20px]">
+                    <div class="flex justify-between items-start">
+                        <span class="font-['Inter'] text-[14px] text-[#5d6470]">Quotation</span>
+                        <span class="font-['Inter'] text-[14px] font-medium text-[#17191c]">QT-@Model.DateIssued.Year-@Model.InvoiceID.ToString("D4")</span>
+                    </div>
+                    <div class="flex justify-between items-start">
+                        <span class="font-['Inter'] text-[14px] text-[#5d6470]">Service</span>
+                        <span class="font-['Inter'] text-[14px] font-medium text-[#17191c]">@Model.ServiceRequest.ServiceCategory</span>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center">
+                    <span class="font-['Inter'] text-[16px] font-semibold text-[#17191c]">Total Amount</span>
+                    <span class="font-['Inter'] font-bold text-[24px] text-[#0878f9]">@Model.TotalAmount.ToString("C2", new System.Globalization.CultureInfo("en-PH"))</span>
+                </div>
+
+                <div class="pt-[8px]">
+                    <button type="submit" 
+                            :disabled="!selectedMethod"
+                            :class="selectedMethod ? 'bg-[#0878f9] hover:bg-[#0766d3] text-white shadow-sm' : 'bg-[#e7eaf0] text-[#a0a8b5] cursor-not-allowed'"
+                            class="w-full py-[12px] rounded-[8px] font-['Inter'] font-semibold text-[15px] text-center transition-colors">
+                        Confirm Payment
+                    </button>
+                    <p class="font-['Inter'] text-[12px] text-center text-[#8a929e] mt-[12px]">
+                        Payments are safely processed by a secure gateway.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>

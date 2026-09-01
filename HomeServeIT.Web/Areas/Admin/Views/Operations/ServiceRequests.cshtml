@@ -1,0 +1,692 @@
+@model IEnumerable<HomeServeIT.Web.Models.ServiceRequest>
+@{
+    ViewData["Title"] = "Jobs & Requests";
+}
+
+<div x-data="{
+    activeTab: 'all', selectedTech: 'all', showRequestModal: false, newRequestCategory: 'Other', reassignModalOpen: false,
+    currentRequestId: null, currentTechId: null,
+    drawerOpen: false, drawerReq: null,
+    cancelModalOpen: false, cancelRequestId: null,
+    rejectCancelModalOpen: false, rejectCancelId: null,
+    currentReqId: null,
+    chatModalOpen: false, chatLogs: [], currentAdminId: 'Admin',
+    openDrawer(r) { this.drawerReq = r; this.drawerOpen = true; },
+    openCancelModal(id) { this.cancelRequestId = id; this.cancelModalOpen = true; },
+    async openChatLogs(reqId) {
+        this.currentReqId = reqId;
+        const res = await fetch(`/Admin/Operations/GetChatLogs?requestId=${reqId}`);
+        if(res.ok) {
+            this.chatLogs = await res.json();
+            this.chatModalOpen = true;
+        } else {
+            alert('Could not load chat logs.');
+        }
+    }
+}" class="content-stretch flex flex-col items-start max-w-7xl p-[32px] relative shrink-0 w-full mx-auto pb-[100px]">
+    <!-- Header -->
+    <div class="flex items-start justify-between w-full">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <h1 class="font-['Inter'] font-[650] leading-[42px] relative shrink-0 text-[#17191c] text-[28px] whitespace-nowrap">
+                Jobs &amp; Requests
+            </h1>
+            <p class="font-['Inter'] font-normal leading-[21px] mt-1 relative shrink-0 text-[#5d6470] text-[14px] whitespace-nowrap">
+                Review, assign, and track incoming service requests and jobs.
+            </p>
+        </div>
+        <button @@click="showRequestModal = true" class="bg-[#0878f9] hover:bg-blue-600 transition-colors text-white font-['Inter'] font-semibold text-[14px] px-[16px] py-[10px] rounded-[8px] shadow-sm">
+            New request
+        </button>
+    </div>
+    
+    <!-- Filters Row -->
+    <div class="flex items-center justify-between w-full mt-8">
+        <!-- Tabs -->
+        <div class="flex items-center gap-2 bg-white border border-[#e7eaf0] rounded-[12px] p-1 shadow-sm w-fit">
+            <button @@click="activeTab = 'all'" :class="{ 'bg-white border-[#e7eaf0] shadow-sm text-[#17191c]': activeTab === 'all', 'border-transparent text-[#5d6470] hover:bg-gray-50': activeTab !== 'all' }" class="flex items-center gap-2 px-3 py-1.5 border rounded-[8px] transition-colors">
+                <span class="font-['Inter'] font-[550] text-[13px]">All</span>
+                <span :class="{ 'bg-[#edf5ff] text-[#0878f9]': activeTab === 'all', 'bg-gray-100 text-[#8a929e]': activeTab !== 'all' }" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full">@Model.Count(r => !r.IsArchived)</span>
+            </button>
+            <button @@click="activeTab = 'Unassigned'" :class="{ 'bg-white border-[#e7eaf0] shadow-sm text-[#17191c]': activeTab === 'Unassigned', 'border-transparent text-[#5d6470] hover:bg-gray-50': activeTab !== 'Unassigned' }" class="flex items-center gap-2 px-3 py-1.5 border rounded-[8px] transition-colors">
+                <span class="font-['Inter'] font-[550] text-[13px]">Unassigned</span>
+                <span :class="{ 'bg-[#edf5ff] text-[#0878f9]': activeTab === 'Unassigned', 'bg-gray-100 text-[#8a929e]': activeTab !== 'Unassigned' }" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full">@Model.Count(r => r.Status == "Pending" && r.TechID == null)</span>
+            </button>
+            <button @@click="activeTab = 'Scheduled'" :class="{ 'bg-white border-[#e7eaf0] shadow-sm text-[#17191c]': activeTab === 'Scheduled', 'border-transparent text-[#5d6470] hover:bg-gray-50': activeTab !== 'Scheduled' }" class="flex items-center gap-2 px-3 py-1.5 border rounded-[8px] transition-colors">
+                <span class="font-['Inter'] font-[550] text-[13px]">Scheduled</span>
+                <span :class="{ 'bg-[#edf5ff] text-[#0878f9]': activeTab === 'Scheduled', 'bg-gray-100 text-[#8a929e]': activeTab !== 'Scheduled' }" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full">@Model.Count(r => r.Status == "Pending" && r.TechID != null)</span>
+            </button>
+            <button @@click="activeTab = 'In Progress'" :class="{ 'bg-white border-[#e7eaf0] shadow-sm text-[#17191c]': activeTab === 'In Progress', 'border-transparent text-[#5d6470] hover:bg-gray-50': activeTab !== 'In Progress' }" class="flex items-center gap-2 px-3 py-1.5 border rounded-[8px] transition-colors">
+                <span class="font-['Inter'] font-[550] text-[13px]">In progress</span>
+                <span :class="{ 'bg-[#edf5ff] text-[#0878f9]': activeTab === 'In Progress', 'bg-gray-100 text-[#8a929e]': activeTab !== 'In Progress' }" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full">@Model.Count(r => r.Status == "In Progress")</span>
+            </button>
+            <button @@click="activeTab = 'Completed'" :class="{ 'bg-white border-[#e7eaf0] shadow-sm text-[#17191c]': activeTab === 'Completed', 'border-transparent text-[#5d6470] hover:bg-gray-50': activeTab !== 'Completed' }" class="flex items-center gap-2 px-3 py-1.5 border rounded-[8px] transition-colors">
+                <span class="font-['Inter'] font-[550] text-[13px]">Completed</span>
+                <span :class="{ 'bg-[#edf5ff] text-[#0878f9]': activeTab === 'Completed', 'bg-gray-100 text-[#8a929e]': activeTab !== 'Completed' }" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full">@Model.Count(r => r.Status == "Completed")</span>
+            </button>
+        </div>
+
+        <!-- Tech Filter -->
+        <div class="flex items-center gap-3">
+            <label class="font-['Inter'] text-[13px] font-medium text-[#5d6470]">Filter by Technician:</label>
+            <select x-model="selectedTech" class="ui-select !w-auto text-[13px]">
+                <option value="all">All Technicians</option>
+                <option value="unassigned">Unassigned</option>
+                @if (ViewBag.Technicians != null)
+                {
+                    var techs = ViewBag.Technicians as IEnumerable<HomeServeIT.Web.Models.Technician>;
+                    if (techs != null)
+                    {
+                        foreach (var tech in techs)
+                        {
+                            <option value="@tech.TechID">@tech.FirstName @tech.LastName</option>
+                        }
+                    }
+                }
+            </select>
+        </div>
+    </div>
+    
+    <!-- Table -->
+    <div class="w-full mt-6 bg-white border border-[#e7eaf0] rounded-[16px] overflow-visible shadow-sm relative z-10">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b border-[#e7eaf0]">
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Job</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Customer &middot; Device</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Technician</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Scheduled</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Priority</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Status</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="font-['Inter'] text-[13px] text-[#17191c]">
+                
+                @foreach (var request in Model)
+                {
+                    var actualTab = request.Status;
+                    if (request.Status == "Pending")
+                    {
+                        actualTab = request.TechID == null ? "Unassigned" : "Scheduled";
+                    }
+
+                    var techValue = request.TechID == null ? "unassigned" : request.TechID.ToString();
+                    var rDesc = (request.IssueDescription ?? "").Replace("'", "\\'").Replace("\r", "").Replace("\n", " ");
+                    var rCat = request.ServiceCategory;
+                    var rDate = request.ScheduledDate.ToString("MMM d, yyyy \u2013 h:mm tt");
+                    var rTech = request.Technician != null ? $"{request.Technician.FirstName} {request.Technician.LastName}".Replace("'", "\\'") : "Unassigned";
+                    var rStatus = request.Status;
+                    var rPrio = request.Priority;
+                    var rImage = request.ImagePath ?? "";
+                    var rCustomer = request.Customer != null ? $"{request.Customer.FirstName} {request.Customer.LastName}".Replace("'", "\\'") : "Unknown";
+                    var rIsCancelReq = request.IsCancellationRequested.ToString().ToLower();
+                    var rCancelReason = (request.CancellationReason ?? "").Replace("'", "\\'").Replace("\r", "").Replace("\n", " ");
+                    var rCancelStatus = (request.CancellationStatus ?? "None").Replace("'", "\\'");
+                    var rIsArchived = request.IsArchived.ToString().ToLower();
+                    var c1 = request.Check1_Diagnostic.ToString().ToLower();
+                    var c2 = request.Check2_Hardware.ToString().ToLower();
+                    var c3 = request.Check3_Firmware.ToString().ToLower();
+                    var c4 = request.Check4_QA.ToString().ToLower();
+                    var c5 = request.Check5_Handover.ToString().ToLower();
+                    var rDeliverable = "";
+
+                    <tr x-show="(activeTab === 'all' || activeTab === '@actualTab') && (selectedTech === 'all' || selectedTech === '@techValue')" class="border-b border-[#e7eaf0] last:border-0 hover:bg-blue-50/20 transition-colors cursor-pointer" @@click="openDrawer({ id: '@request.RequestID', desc: '@rDesc', cat: '@rCat', date: '@rDate', tech: '@rTech', status: '@rStatus', prio: '@rPrio', image: '@rImage', customer: '@rCustomer', isCancelReq: @rIsCancelReq, cancelReason: '@rCancelReason', cancelStatus: '@rCancelStatus', isArchived: @rIsArchived, c1: @c1, c2: @c2, c3: @c3, c4: @c4, c5: @c5, deliverable: '@rDeliverable' })">
+                        <td class="py-4 px-6 font-['JetBrains_Mono'] font-medium text-[#0878f9]">JOB-@request.ScheduledDate.Year-@request.RequestID.ToString("D4")</td>
+                        <td class="py-4 px-6">
+                            <p class="font-semibold text-[#17191c]">@request.Customer?.FirstName @request.Customer?.LastName</p>
+                            <p class="text-[#8a929e] text-[12px] mt-0.5 truncate max-w-[150px]" title="@request.IssueDescription">@request.IssueDescription</p>
+                        </td>
+                        <td class="py-4 px-6">
+                            @if (request.Technician != null)
+                            {
+                                <div class="flex items-center gap-2">
+                                    <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-[11px]">
+                                        @(request.Technician?.FirstName?.Substring(0,1))@(request.Technician?.LastName?.Substring(0,1))
+                                    </div>
+                                    <div>
+                                        <p class="font-medium">@request.Technician?.FirstName @request.Technician?.LastName</p>
+                                        <p class="text-[11px] text-[#8a929e]">@request.Technician?.Specialty</p>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="text-[#8a929e] italic text-[12px]">Unassigned</span>
+                            }
+                        </td>
+                        <td class="py-4 px-6 text-[#5d6470]">@request.ScheduledDate.ToString("MMM d, yyyy · h:mm tt")</td>
+                        <td class="py-4 px-6">
+                            @{
+                                var prioClass = "bg-blue-50 text-blue-600";
+                                if (request.Priority == "Urgent") prioClass = "bg-red-50 text-red-600";
+                                else if (request.Priority == "Low") prioClass = "bg-gray-100 text-gray-600";
+                            }
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold @prioClass">@request.Priority</span>
+                        </td>
+                        <td class="py-4 px-6">
+                            @{
+                                var statusClass = "bg-yellow-50 text-yellow-700";
+                                var dotClass = "bg-yellow-500";
+                                var displayStatus = request.Status;
+                                if (request.Status == "PendingAdminApproval")
+                                {
+                                    displayStatus = "Pending";
+                                }
+                                if (request.Status == "Completed")
+                                {
+                                    statusClass = "bg-green-50 text-green-700";
+                                    dotClass = "bg-green-500";
+                                }
+                                else if (request.Status == "In Progress")
+                                {
+                                    statusClass = "bg-blue-50 text-blue-700";
+                                    dotClass = "bg-blue-600";
+                                }
+                                else if (request.Status == "Pending" && request.TechID != null)
+                                {
+                                    displayStatus = "Scheduled";
+                                }
+                                else if (request.Status == "Pending" && request.TechID == null)
+                                {
+                                    displayStatus = "Unassigned";
+                                    statusClass = "bg-gray-100 text-gray-700";
+                                    dotClass = "bg-gray-400";
+                                }
+                            }
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium @statusClass">
+                                <span class="w-1.5 h-1.5 rounded-full @dotClass"></span> @displayStatus
+                            </span>
+                        </td>
+                        <td class="py-4 px-6 text-right relative" x-data="{ menuOpen: false }" @@click.stop>
+                            <button @@click="menuOpen = !menuOpen" @@click.away="menuOpen = false" :aria-expanded="menuOpen" aria-haspopup="true" aria-label="Service request actions" class="ui-icon-button !h-8 !w-8">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                            </button>
+                            
+                            <div x-show="menuOpen" x-transition.opacity style="display: none;" class="ui-menu-panel absolute right-6 top-10 w-56 p-1 z-50 text-left">
+                                @if (request.Status != "Completed")
+                                {
+                                    @if (request.TechID == null)
+                                    {
+                                        <button @@click="menuOpen = false; currentRequestId = @request.RequestID; currentTechId = null; reassignModalOpen = true" class="ui-menu-item">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                                            Assign Technician
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button @@click="menuOpen = false; currentRequestId = @request.RequestID; currentTechId = '@request.TechID'; reassignModalOpen = true" class="ui-menu-item">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                                            Reassign Technician
+                                        </button>
+                                        <div class="h-px bg-[#e7eaf0] my-1"></div>
+                                        <form asp-action="UpdateStatus" asp-controller="Operations" method="post" class="w-full">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="requestId" value="@request.RequestID" />
+                                            <input type="hidden" name="status" value="In Progress" />
+                                            <button type="submit" class="ui-menu-item">
+                                                Mark In Progress
+                                            </button>
+                                        </form>
+                                        <form asp-action="UpdateStatus" asp-controller="Operations" method="post" class="w-full">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="requestId" value="@request.RequestID" />
+                                            <input type="hidden" name="status" value="Completed" />
+                                            <button type="submit" class="ui-menu-item !text-[#178a4b]">
+                                                Mark Completed
+                                            </button>
+                                        </form>
+                                    }
+                                    <div class="h-px bg-[#e7eaf0] my-1"></div>
+                                    <button @@click="menuOpen = false; openCancelModal('@request.RequestID')" class="ui-menu-item !text-red-600 hover:!bg-red-50">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+                                        Cancel Request
+                                    </button>
+                                }
+                                @if (request.Status == "Completed")
+                                {
+                                    <form asp-area="Admin" asp-controller="Operations" asp-action="ArchiveRequest" method="post" class="w-full">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="requestId" value="@request.RequestID" />
+                                        <button type="submit" class="ui-menu-item !text-[#4f5d6d]" title="Remove from operational lists while preserving all records">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+                                            <span><span class="block font-semibold">Archive job</span><span class="mt-0.5 block text-[10px] font-normal text-[#8a929e]">Records stay preserved</span></span>
+                                        </button>
+                                    </form>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                {
+                    <tr>
+                        <td colspan="7" class="py-8 text-center text-[#8a929e] font-['Inter']">No requests found.</td>
+                    </tr>
+                }
+
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ===== DETAIL DRAWER (Admin) ===== -->
+    <div x-show="drawerOpen"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-[90] bg-black/40"
+         style="display:none;"
+         @@click.self="drawerOpen = false">
+
+        <div x-show="drawerOpen"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="translate-x-full"
+             x-transition:enter-end="translate-x-0"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="translate-x-0"
+             x-transition:leave-end="translate-x-full"
+             class="absolute right-0 top-0 h-full w-full max-w-[460px] bg-white shadow-2xl flex flex-col overflow-y-auto">
+
+            <div class="flex items-center justify-between px-6 py-5 border-b border-[#e7eaf0] sticky top-0 bg-white z-10">
+                <div>
+                    <p class="font-['JetBrains_Mono'] text-[13px] text-[#0878f9] font-medium" x-text="drawerReq ? 'JOB-' + drawerReq.id : ''"></p>
+                    <h3 class="font-['Inter'] font-[650] text-[#17191c] text-[17px] mt-0.5">Request Details</h3>
+                </div>
+                <button @@click="drawerOpen = false" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-[#8a929e] transition-colors">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+
+            <div class="flex flex-col gap-5 p-6" x-show="drawerReq">
+                <!-- Status + Priority -->
+                <div class="flex gap-2 flex-wrap">
+                    <template x-if="drawerReq">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold"
+                              :class="{ 'bg-green-50 text-green-700': drawerReq.status==='Completed', 'bg-blue-50 text-blue-700': drawerReq.status==='In Progress', 'bg-yellow-50 text-yellow-700': drawerReq.status==='Pending' }">
+                            <span class="w-1.5 h-1.5 rounded-full" :class="{ 'bg-green-500': drawerReq.status==='Completed', 'bg-blue-500': drawerReq.status==='In Progress', 'bg-yellow-500': drawerReq.status==='Pending' }"></span>
+                            <span x-text="drawerReq.status === 'PendingAdminApproval' ? 'Pending' : drawerReq.status"></span>
+                        </span>
+                    </template>
+                    <template x-if="drawerReq">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-semibold"
+                              :class="{ 'bg-red-50 text-red-700': drawerReq.prio==='Urgent', 'bg-blue-50 text-blue-700': drawerReq.prio==='Normal', 'bg-gray-100 text-gray-600': drawerReq.prio==='Low' }"
+                              x-text="drawerReq.prio + ' Priority'"></span>
+                    </template>
+                </div>
+
+                <!-- Customer -->
+                <div class="bg-gray-50 rounded-[12px] p-4">
+                    <p class="font-['Inter'] font-[600] text-[11px] uppercase text-[#8a929e] mb-1 tracking-wide">Customer</p>
+                    <p class="font-['Inter'] text-[15px] font-[650] text-[#17191c]" x-text="drawerReq?.customer"></p>
+                </div>
+
+                <!-- Description -->
+                <div class="bg-gray-50 rounded-[12px] p-4">
+                    <p class="font-['Inter'] font-[600] text-[11px] uppercase text-[#8a929e] mb-2 tracking-wide">Issue Description</p>
+                    <p class="font-['Inter'] text-[14px] text-[#17191c] leading-relaxed" x-text="drawerReq?.desc"></p>
+                </div>
+
+                <!-- Details Grid -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-gray-50 rounded-[10px] p-3">
+                        <p class="font-['Inter'] text-[11px] uppercase font-[600] text-[#8a929e] mb-1 tracking-wide">Category</p>
+                        <p class="font-['Inter'] text-[13px] font-[550] text-[#17191c]" x-text="drawerReq?.cat"></p>
+                    </div>
+                    <div class="bg-gray-50 rounded-[10px] p-3">
+                        <p class="font-['Inter'] text-[11px] uppercase font-[600] text-[#8a929e] mb-1 tracking-wide">Scheduled</p>
+                        <p class="font-['Inter'] text-[13px] font-[550] text-[#17191c]" x-text="drawerReq?.date"></p>
+                    </div>
+                    <div class="bg-gray-50 rounded-[10px] p-3 col-span-2">
+                        <p class="font-['Inter'] text-[11px] uppercase font-[600] text-[#8a929e] mb-1 tracking-wide">Assigned Technician</p>
+                        <p class="font-['Inter'] text-[13px] font-[550] text-[#17191c]" x-text="drawerReq?.tech"></p>
+                    </div>
+                </div>
+
+                <!-- Photo -->
+                <template x-if="drawerReq && drawerReq.image">
+                    <div>
+                        <p class="font-['Inter'] font-[600] text-[11px] uppercase text-[#8a929e] mb-3 tracking-wide">Customer Photo</p>
+                        <img :src="drawerReq.image" alt="Attached photo" class="w-full rounded-[12px] object-cover max-h-[240px] border border-[#e7eaf0]" />
+                    </div>
+                </template>
+                <template x-if="drawerReq && !drawerReq.image">
+                    <div class="flex flex-col items-center justify-center py-6 bg-gray-50 rounded-[12px] gap-2">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c1c7d0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        <p class="font-['Inter'] text-[13px] text-[#8a929e]">No photo attached</p>
+                    </div>
+                </template>
+
+                <!-- SOP Checklists -->
+                <div class="bg-gray-50 rounded-[12px] p-4">
+                    <p class="font-['Inter'] font-[600] text-[11px] uppercase text-[#8a929e] mb-2 tracking-wide">SOP Checklists</p>
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" :checked="drawerReq?.c1" disabled class="rounded border-gray-300 text-blue-600 shadow-sm" />
+                            <span class="text-[13px] text-[#17191c]">Diagnostic Completed</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" :checked="drawerReq?.c2" disabled class="rounded border-gray-300 text-blue-600 shadow-sm" />
+                            <span class="text-[13px] text-[#17191c]">Hardware Fixes</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" :checked="drawerReq?.c3" disabled class="rounded border-gray-300 text-blue-600 shadow-sm" />
+                            <span class="text-[13px] text-[#17191c]">Software Fixes</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" :checked="drawerReq?.c4" disabled class="rounded border-gray-300 text-blue-600 shadow-sm" />
+                            <span class="text-[13px] text-[#17191c]">Testing</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" :checked="drawerReq?.c5" disabled class="rounded border-gray-300 text-blue-600 shadow-sm" />
+                            <span class="text-[13px] text-[#17191c]">Cleanup</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deliverable -->
+                <template x-if="drawerReq && drawerReq.deliverable">
+                    <div class="bg-gray-50 rounded-[12px] p-4">
+                        <p class="font-['Inter'] font-[600] text-[11px] uppercase text-[#8a929e] mb-2 tracking-wide">Deliverable</p>
+                        <a :href="drawerReq.deliverable" target="_blank" class="text-blue-600 hover:underline text-sm font-medium flex items-center gap-2">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            View File
+                        </a>
+                    </div>
+                </template>
+                <template x-if="drawerReq && !drawerReq.deliverable && drawerReq.status === 'Completed'">
+                    <div class="bg-gray-50 rounded-[12px] p-4">
+                        <p class="font-['Inter'] font-[600] text-[11px] uppercase text-[#8a929e] mb-2 tracking-wide">Deliverable</p>
+                        <p class="text-gray-500 text-sm">No deliverable uploaded.</p>
+                    </div>
+                </template>
+
+                <!-- Chat Logs Button -->
+                <div class="bg-gray-50 rounded-[12px] p-4">
+                    <p class="font-['Inter'] font-[600] text-[11px] uppercase text-[#8a929e] mb-2 tracking-wide">Chat History</p>
+                    <button @@click="openChatLogs(drawerReq.id)" class="bg-white border border-[#e7eaf0] px-4 py-2 text-sm font-semibold text-[#17191c] rounded-[8px] hover:bg-gray-100 transition-colors">
+                        View Chat Logs
+                    </button>
+                </div>
+
+                <!-- Cancellation Request Action -->
+                <template x-if="drawerReq && drawerReq.isCancelReq && drawerReq.cancelStatus === 'Pending'">
+                    <div class="bg-red-50 border border-red-200 rounded-[12px] p-4 flex flex-col gap-3 mt-2">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            </div>
+                            <div>
+                                <h4 class="font-['Inter'] font-bold text-[14px] text-red-900 leading-tight">Cancellation Requested</h4>
+                                <p class="text-[12px] text-red-700">Customer wants to cancel this job.</p>
+                            </div>
+                        </div>
+                        <div class="bg-white/80 p-3 rounded-lg border border-red-100">
+                            <p class="text-[11px] font-semibold text-red-800 uppercase tracking-wide mb-1">Reason Provided</p>
+                            <p class="text-[13px] text-red-900" x-text="drawerReq.cancelReason"></p>
+                        </div>
+                        <div class="flex gap-2">
+                            <form method="post" action="/Admin/Operations/ApproveCancellation" class="flex-1">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="requestId" :value="drawerReq.id" />
+                                <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold text-[13px] py-2 rounded-lg transition-colors">Approve Cancel</button>
+                            </form>
+                            <button @@click="rejectCancelModalOpen = true; rejectCancelId = drawerReq.id; drawerOpen = false;" type="button" class="flex-1 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-semibold text-[13px] py-2 rounded-lg transition-colors">Reject...</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reassign/Assign Modal -->
+    <div x-show="reassignModalOpen" style="display: none;" class="fixed inset-0 z-[100] flex items-center justify-center">
+        <!-- Backdrop -->
+        <div @@click="reassignModalOpen = false" class="absolute inset-0 bg-[#000000]/40 backdrop-blur-sm transition-opacity"></div>
+        
+        <!-- Modal Content -->
+        <div class="bg-white rounded-[16px] shadow-xl w-full max-w-md relative z-10 overflow-hidden" x-transition.scale.origin.center>
+            <div class="px-[24px] py-[20px] border-b border-[#e7eaf0] flex justify-between items-center">
+                <h3 class="font-['Inter'] font-semibold text-[#17191c] text-[18px]" x-text="currentTechId ? 'Reassign Job' : 'Assign Technician'"></h3>
+                <button @@click="reassignModalOpen = false" class="text-[#8a929e] hover:text-[#17191c] transition-colors">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            
+            <form asp-action="AssignTechnician" asp-controller="Operations" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="requestId" :value="currentRequestId" />
+                
+                <div class="p-[24px]">
+                    <p class="text-[14px] text-[#5d6470] mb-4">Select a technician to assign to this request.</p>
+                    
+                    <div class="flex flex-col gap-2">
+                        <label class="font-['Inter'] font-medium text-[#17191c] text-[13px]">Assign To</label>
+                        <select name="techId" :value="currentTechId" required class="ui-select text-[14px]">
+                            <option value="">Select a technician</option>
+                            @if (ViewBag.Technicians != null)
+                            {
+                                var techsList = ViewBag.Technicians as IEnumerable<HomeServeIT.Web.Models.Technician>;
+                                if (techsList != null)
+                                {
+                                    foreach (var tech in techsList)
+                                    {
+                                        <option value="@tech.TechID">@tech.FirstName @tech.LastName (@tech.Specialty)</option>
+                                    }
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="px-[24px] py-[16px] bg-gray-50 border-t border-[#e7eaf0] flex justify-end gap-3 rounded-b-[16px]">
+                    <button type="button" @@click="reassignModalOpen = false" class="px-[16px] py-[8px] font-['Inter'] font-medium text-[14px] text-[#5d6470] hover:text-[#17191c] bg-white border border-[#e7eaf0] rounded-[8px] hover:bg-gray-50 transition-colors shadow-sm">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-[16px] py-[8px] font-['Inter'] font-medium text-[14px] text-white bg-[#0878f9] rounded-[8px] hover:bg-blue-600 transition-colors shadow-sm flex items-center gap-2">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                        Confirm Assignment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Cancel Confirmation Modal -->
+    <div x-show="cancelModalOpen" style="display: none;" class="fixed inset-0 z-[110] flex items-center justify-center">
+        <!-- Backdrop -->
+        <div @@click="cancelModalOpen = false" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+
+        <!-- Modal -->
+        <div class="relative z-10 bg-white rounded-[20px] shadow-2xl w-full max-w-sm mx-4 overflow-hidden" x-transition.scale.origin.center>
+            <!-- Warning Header -->
+            <div class="bg-red-50 px-6 pt-6 pb-4 flex flex-col items-center text-center border-b border-red-100">
+                <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-3">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+                </div>
+                <h3 class="font-['Inter'] font-[700] text-[#17191c] text-[17px]">Cancel Service Request?</h3>
+                <p class="font-['Inter'] text-[13px] text-[#5d6470] mt-1">
+                    This will cancel the request and unassign any technician. This action cannot be undone.
+                </p>
+            </div>
+
+            <!-- Actions -->
+            <div class="px-6 py-5 flex gap-3 justify-end">
+                <button type="button" @@click="cancelModalOpen = false"
+                        class="px-4 py-2 font-['Inter'] font-medium text-[14px] text-[#5d6470] bg-white border border-[#e7eaf0] rounded-[8px] hover:bg-gray-50 transition-colors shadow-sm">
+                    Keep Request
+                </button>
+                <form asp-action="CancelRequest" asp-controller="Operations" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="requestId" :value="cancelRequestId" />
+                    <button type="submit"
+                            class="px-4 py-2 font-['Inter'] font-medium text-[14px] text-white bg-red-600 rounded-[8px] hover:bg-red-700 transition-colors shadow-sm flex items-center gap-2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+                        Yes, Cancel It
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reject Cancellation Modal -->
+    <div x-show="rejectCancelModalOpen" style="display: none;" class="fixed inset-0 z-[110] flex items-center justify-center">
+        <!-- Backdrop -->
+        <div @@click="rejectCancelModalOpen = false" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+
+        <!-- Modal -->
+        <div class="relative z-10 bg-white rounded-[20px] shadow-2xl w-full max-w-md mx-4 overflow-hidden" x-transition.scale.origin.center>
+            <div class="px-[24px] py-[20px] border-b border-[#e7eaf0] flex justify-between items-center bg-gray-50">
+                <h3 class="font-['Inter'] font-semibold text-[#17191c] text-[18px]">Reject Cancellation</h3>
+                <button @@click="rejectCancelModalOpen = false" class="text-[#8a929e] hover:text-[#17191c] transition-colors">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            
+            <form asp-action="RejectCancellation" asp-controller="Operations" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="requestId" :value="rejectCancelId" />
+                <div class="p-[24px]">
+                    <p class="text-[13px] text-[#5d6470] mb-4">Please provide a reason for rejecting the cancellation request. The customer will see this message.</p>
+                    <textarea name="rejectReason" rows="3" required placeholder="e.g. Technician has already purchased parts for this repair..." class="w-full text-sm border border-gray-300 rounded-lg p-3 focus:ring-[#0878f9] outline-none"></textarea>
+                </div>
+                
+                <div class="px-[24px] py-[16px] bg-gray-50 border-t border-[#e7eaf0] flex justify-end gap-3 rounded-b-[20px]">
+                    <button type="button" @@click="rejectCancelModalOpen = false" class="px-[16px] py-[8px] font-['Inter'] font-medium text-[14px] text-[#5d6470] hover:text-[#17191c] bg-white border border-[#e7eaf0] rounded-[8px] hover:bg-gray-50 transition-colors shadow-sm">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-[16px] py-[8px] font-['Inter'] font-medium text-[14px] text-white bg-[#0878f9] rounded-[8px] hover:bg-blue-600 transition-colors shadow-sm">
+                        Reject Request
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- New Request Modal -->
+    <div x-show="showRequestModal" style="display: none;" class="relative z-[100]" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div x-show="showRequestModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 bg-gray-500/75 backdrop-blur-sm transition-opacity"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div x-show="showRequestModal" @@click.away="showRequestModal = false" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="relative transform overflow-hidden rounded-[24px] bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-[#e7eaf0]">
+                    <div class="bg-white px-6 pb-6 pt-6">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
+                                <h3 class="text-[20px] font-bold leading-6 text-[#17191c]" id="modal-title">New Service Request</h3>
+                                <div class="mt-2">
+                                    <p class="text-[14px] text-[#5d6470]">Create a new service request for a customer.</p>
+                                </div>
+                                <form method="post" enctype="multipart/form-data" asp-action="AddServiceRequest" asp-controller="Operations" asp-area="Admin" class="mt-6">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="serviceCategory" :value="newRequestCategory" />
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Customer</label>
+                                            <select name="customerId" required class="ui-select text-[14px]">
+                                                <option value="">Select a customer</option>
+                                                @if (ViewBag.Customers != null)
+                                                {
+                                                    var customersList = ViewBag.Customers as IEnumerable<HomeServeIT.Web.Models.Customer>;
+                                                    if (customersList != null)
+                                                    {
+                                                        foreach (var customer in customersList)
+                                                        {
+                                                            <option value="@customer.CustomerID">@customer.FirstName @customer.LastName</option>
+                                                        }
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="mb-2 block text-sm font-semibold text-[#17191c]">Device or service type</label>
+                                            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                                <template x-for="categoryOption in [
+                                                    { id: 'Hardware Repair', label: 'Hardware', icon: '<svg viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.7\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><path d=\'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z\'/></svg>' },
+                                                    { id: 'Software / OS', label: 'Software', icon: '<svg viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.7\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><rect x=\'2\' y=\'3\' width=\'20\' height=\'14\' rx=\'2\'/><path d=\'M8 21h8M12 17v4\'/></svg>' },
+                                                    { id: 'Network Setup', label: 'Network', icon: '<svg viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.7\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><path d=\'M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01\'/></svg>' },
+                                                    { id: 'CCTV / Security', label: 'Security', icon: '<svg viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.7\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><path d=\'M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z\'/><circle cx=\'12\' cy=\'13\' r=\'3\'/></svg>' },
+                                                    { id: 'Data Recovery', label: 'Recovery', icon: '<svg viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.7\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><ellipse cx=\'12\' cy=\'5\' rx=\'9\' ry=\'3\'/><path d=\'M21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5\'/></svg>' },
+                                                    { id: 'Phone', label: 'Phone', icon: '<svg viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.7\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><rect x=\'5\' y=\'2\' width=\'14\' height=\'20\' rx=\'3\'/><path d=\'M9 5h6M11 18h2\'/></svg>' },
+                                                    { id: 'Other', label: 'Other', icon: '<svg viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.7\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><circle cx=\'12\' cy=\'12\' r=\'10\'/><path d=\'M12 8v4M12 16h.01\'/></svg>' }
+                                                ]" :key="categoryOption.id">
+                                                    <button type="button"
+                                                            @@click="newRequestCategory = categoryOption.id"
+                                                            :aria-pressed="newRequestCategory === categoryOption.id"
+                                                            :class="newRequestCategory === categoryOption.id ? 'border-[#0878f9] bg-blue-50 text-[#0878f9] ring-2 ring-blue-100' : 'border-[#e7eaf0] bg-white text-[#69717d] hover:border-blue-300 hover:bg-blue-50/40'"
+                                                            class="flex min-h-[74px] flex-col items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-center transition">
+                                                        <span class="flex h-5 w-5 items-center justify-center [&_svg]:h-5 [&_svg]:w-5" x-html="categoryOption.icon"></span>
+                                                        <span class="text-[10px] font-semibold leading-tight" x-text="categoryOption.label"></span>
+                                                    </button>
+                                                </template>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Issue Description</label>
+                                            <textarea name="issueDescription" required rows="3" class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" placeholder="Describe the issue..."></textarea>
+                                        </div>
+                                        <div>
+                                            <div class="mb-1.5 flex items-center justify-between gap-3">
+                                                <label for="admin-scheduled-date" class="block text-sm font-semibold text-[#17191c]">Scheduled date &amp; time</label>
+                                                <span class="rounded-full bg-[#f1f5f9] px-2 py-0.5 text-[10px] font-bold tracking-wide text-[#69717d]">PHT · UTC+8</span>
+                                            </div>
+                                            <div class="ui-date-control">
+                                                <input id="admin-scheduled-date" type="datetime-local" name="scheduledDate" required class="ui-date-input" data-picker-label="Appointment schedule" data-picker-placeholder="Select an appointment" aria-describedby="admin-scheduled-date-hint" />
+                                                <span class="ui-date-control__icon" aria-hidden="true"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"calendar"' /></span>
+                                            </div>
+                                            <p id="admin-scheduled-date-hint" class="ui-date-hint">Choose the customer’s confirmed appointment time.</p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Attach Photo (optional)</label>
+                                            <input type="file" name="image" accept="image/*" class="block w-full text-[13px] text-[#5d6470] file:mr-3 file:py-1.5 file:px-3 file:rounded-[6px] file:border-0 file:text-[12px] file:font-semibold file:bg-blue-50 file:text-[#0878f9] hover:file:bg-blue-100 border border-[#e7eaf0] rounded-lg p-1" />
+                                        </div>
+                                    </div>
+                                    <div class="mt-8 flex items-center justify-end gap-3">
+                                        <button type="button" @@click="showRequestModal = false" class="px-4 py-2 text-[14px] font-semibold text-[#17191c] bg-white border border-[#e7eaf0] rounded-lg shadow-sm hover:bg-gray-50 transition-colors">Cancel</button>
+                                        <button type="submit" class="px-4 py-2 text-[14px] font-semibold text-white bg-[#0878f9] rounded-lg shadow-sm hover:bg-blue-600 transition-colors">Create request</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Chat Logs Modal (Admin view-only) -->
+    <div x-show="chatModalOpen" style="display:none;" class="fixed inset-0 z-[120] bg-black/50 flex items-center justify-center backdrop-blur-sm p-4">
+        <div @@click.away="chatModalOpen = false" class="bg-white rounded-[16px] shadow-xl w-full max-w-2xl h-[70vh] flex flex-col overflow-hidden">
+            <div class="p-5 border-b border-[#e7eaf0] flex items-center justify-between bg-gray-50">
+                <h3 class="font-['Inter'] font-semibold text-lg text-[#17191c]">Chat Logs (JOB-<span x-text="currentReqId"></span>)</h3>
+                <button @@click="chatModalOpen = false" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-6 bg-gray-50 space-y-4">
+                <template x-if="chatLogs.length === 0">
+                    <div class="flex flex-col items-center justify-center h-full opacity-50 text-center">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        <p class="mt-4 font-medium font-['Inter'] text-sm">No chat history found.</p>
+                    </div>
+                </template>
+
+                <template x-for="msg in chatLogs" :key="msg.messageId">
+                    <div class="flex flex-col mb-4" :class="msg.senderId.includes('Cust') ? 'items-start' : 'items-end'">
+                        <div class="text-[11px] text-gray-500 mb-1 px-1" x-text="msg.senderId + ' • ' + new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})"></div>
+                        <div class="px-4 py-2 rounded-2xl max-w-[80%] text-[14px]"
+                             :class="msg.senderId.includes('Cust') ? 'bg-white border border-gray-200 text-gray-800' : 'bg-blue-600 text-white'">
+                            <p x-text="msg.content" class="whitespace-pre-wrap"></p>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            
+            <div class="p-4 border-t border-[#e7eaf0] bg-white flex justify-end">
+                 <button @@click="chatModalOpen = false" class="px-4 py-2 border border-[#e7eaf0] text-[#5d6470] font-['Inter'] font-medium text-sm rounded-[8px] hover:bg-gray-50 transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

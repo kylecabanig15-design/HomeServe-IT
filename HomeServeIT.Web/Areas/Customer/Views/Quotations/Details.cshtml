@@ -1,0 +1,145 @@
+@model HomeServeIT.Web.Models.Invoice
+@{
+    ViewData["Title"] = "Quotation Details";
+}
+
+<div class="flex flex-col p-[32px] max-w-4xl mx-auto w-full gap-[32px]" x-data="{ agreed: false }">
+    
+    <!-- Breadcrumb & Header -->
+    <div class="flex flex-col gap-[16px]">
+        <a href="@Url.Action("Index")" class="text-[#5d6470] hover:text-[#17191c] font-['Inter'] text-[14px] flex items-center gap-[4px] w-fit transition-colors">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            Back to Quotations
+        </a>
+        <div class="flex justify-between items-start">
+            <div class="flex flex-col gap-[4px]">
+                <h1 class="font-['Inter'] font-bold text-[28px] leading-[35px] tracking-tight text-[#17191c]">
+                    Quotation QT-@Model.DateIssued.Year-@Model.InvoiceID.ToString("D4")
+                </h1>
+                <p class="font-['Inter'] text-[15px] leading-[21px] text-[#5d6470]">
+                    For Service Request SR-@Model.ServiceRequest.ScheduledDate.Year-@Model.ServiceRequest.RequestID.ToString("D4")
+                </p>
+            </div>
+            
+            @if (Model.PaymentStatus == "Unpaid")
+            {
+                <span class="inline-flex items-center gap-[6px] px-[12px] py-[6px] rounded-full bg-yellow-50 text-yellow-700 font-['Inter'] font-[600] text-[13px]">
+                    <span class="w-[8px] h-[8px] rounded-full bg-yellow-500"></span> Pending Approval
+                </span>
+            }
+            else if (Model.PaymentStatus == "Paid")
+            {
+                <span class="inline-flex items-center gap-[6px] px-[12px] py-[6px] rounded-full bg-green-50 text-green-700 font-['Inter'] font-[600] text-[13px]">
+                    <span class="w-[8px] h-[8px] rounded-full bg-green-500"></span> Approved & Paid
+                </span>
+            }
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-[24px]">
+        
+        <!-- Left Col: Details -->
+        <div class="md:col-span-2 flex flex-col gap-[24px]">
+            <div class="bg-white border border-[#e7eaf0] rounded-[12px] p-[24px] shadow-sm flex flex-col gap-[20px]">
+                <h2 class="font-['Inter'] font-semibold text-[18px] text-[#17191c]">Service Details</h2>
+                
+                <div class="flex flex-col gap-[16px]">
+                    <div class="grid grid-cols-3 border-b border-[#e7eaf0] pb-[16px]">
+                        <span class="col-span-1 font-['Inter'] text-[14px] text-[#5d6470]">Category</span>
+                        <span class="col-span-2 font-['Inter'] text-[14px] font-medium text-[#17191c]">@Model.ServiceRequest.ServiceCategory</span>
+                    </div>
+                    <div class="grid grid-cols-3 border-b border-[#e7eaf0] pb-[16px]">
+                        <span class="col-span-1 font-['Inter'] text-[14px] text-[#5d6470]">Issue</span>
+                        <span class="col-span-2 font-['Inter'] text-[14px] font-medium text-[#17191c]">@Model.ServiceRequest.IssueDescription</span>
+                    </div>
+                    <div class="grid grid-cols-3">
+                        <span class="col-span-1 font-['Inter'] text-[14px] text-[#5d6470]">Valid Until</span>
+                        <span class="col-span-2 font-['Inter'] text-[14px] font-medium text-[#17191c]">@Model.DateIssued.AddDays(14).ToString("MMMM d, yyyy")</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white border border-[#e7eaf0] rounded-[12px] p-[24px] shadow-sm flex flex-col gap-[20px]">
+                <h2 class="font-['Inter'] font-semibold text-[18px] text-[#17191c]">Cost Breakdown</h2>
+                <div class="whitespace-pre-line font-['Inter'] text-[15px] text-[#3c424d] leading-relaxed">@Model.BreakdownDetails</div>
+            </div>
+        </div>
+
+        <!-- Right Col: Payment / Summary -->
+        <div class="md:col-span-1 flex flex-col gap-[24px]">
+            <div class="bg-white border border-[#e7eaf0] rounded-[12px] p-[24px] shadow-sm flex flex-col gap-[24px] sticky top-[24px]">
+                <h2 class="font-['Inter'] font-semibold text-[18px] text-[#17191c]">Summary</h2>
+                
+                <div class="flex flex-col gap-[12px]">
+                    <div class="flex justify-between items-center">
+                        <span class="font-['Inter'] text-[15px] text-[#5d6470]">Total Amount</span>
+                        <span class="font-['Inter'] font-bold text-[24px] text-[#17191c]">@Model.TotalAmount.ToString("C2", new System.Globalization.CultureInfo("en-PH"))</span>
+                    </div>
+                </div>
+
+                @if (Model.PaymentStatus == "Unpaid")
+                {
+                    <div class="flex flex-col gap-[16px] pt-[20px] border-t border-[#e7eaf0]">
+                        <label class="flex items-start gap-[12px] cursor-pointer group">
+                            <div class="relative flex items-center mt-[2px]">
+                                <input type="checkbox" x-model="agreed" class="w-[18px] h-[18px] border-[2px] border-[#c1c7d0] rounded-[4px] appearance-none checked:bg-[#0878f9] checked:border-[#0878f9] transition-colors cursor-pointer peer">
+                                <svg class="absolute top-[3px] left-[3px] w-[12px] h-[12px] text-white opacity-0 peer-checked:opacity-100 pointer-events-none" viewBox="0 0 14 10" fill="none">
+                                    <path d="M1 5L5 9L13 1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </div>
+                            <span class="font-['Inter'] text-[13px] leading-[20px] text-[#5d6470] group-hover:text-[#3c424d] transition-colors">
+                                I agree to the <a href="#" class="text-[#0878f9] hover:underline" onclick="event.preventDefault(); document.getElementById('terms-modal').showModal();">Terms and Conditions</a>, including the scope of work, estimated costs, and potential additional charges if unforeseen issues arise during repair.
+                            </span>
+                        </label>
+
+                        <a :href="agreed ? '@Url.Action("Checkout", new { id = Model.InvoiceID })' : '#'" 
+                           :class="agreed ? 'bg-[#0878f9] hover:bg-[#0766d3] text-white shadow-sm' : 'bg-[#e7eaf0] text-[#a0a8b5] cursor-not-allowed'"
+                           class="w-full py-[12px] rounded-[8px] font-['Inter'] font-semibold text-[15px] text-center transition-colors">
+                            Agree and Pay
+                        </a>
+                    </div>
+                }
+                else
+                {
+                    <div class="pt-[20px] border-t border-[#e7eaf0]">
+                        <button class="w-full py-[12px] rounded-[8px] font-['Inter'] font-semibold text-[15px] text-center bg-white border border-[#e7eaf0] text-[#17191c] hover:bg-gray-50 transition-colors shadow-sm" onclick="window.print();">
+                            Download Receipt
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Terms Modal -->
+<dialog id="terms-modal" class="p-[32px] rounded-[16px] backdrop:bg-black/50 backdrop:backdrop-blur-sm border-none shadow-2xl max-w-2xl w-full">
+    <div class="flex justify-between items-center mb-[24px]">
+        <h2 class="font-['Inter'] font-bold text-[24px] text-[#17191c]">Terms and Conditions</h2>
+        <button onclick="document.getElementById('terms-modal').close()" class="p-[8px] text-[#5d6470] hover:bg-gray-100 rounded-full transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+    </div>
+    <div class="prose prose-sm font-['Inter'] text-[#3c424d] overflow-y-auto max-h-[60vh] pr-[8px]">
+        <h4>1. Scope of Work</h4>
+        <p>This quotation covers only the services and parts explicitly listed in the breakdown. Any additional issues discovered during the repair process will require a separate quotation or amendment.</p>
+        
+        <h4>2. Validity</h4>
+        <p>This quotation is valid for 14 days from the date of issuance. Prices for parts may fluctuate after this period.</p>
+
+        <h4>3. Payment Terms</h4>
+        <p>Payment is required in full before work commences unless a prior arrangement has been made. We accept Cash, Credit/Debit Cards, and GCash.</p>
+
+        <h4>4. Unforeseen Complications</h4>
+        <p>While we strive for accurate diagnostics, some complex hardware or software issues may reveal deeper problems once work begins. HomeServe IT will halt work and notify the customer if repair costs exceed the initial estimate by more than 10%.</p>
+
+        <h4>5. Data Liability</h4>
+        <p>For repairs involving storage devices, the customer is responsible for backing up all data prior to service. HomeServe IT is not liable for data loss during repair.</p>
+    </div>
+    <div class="mt-[32px] flex justify-end">
+        <button onclick="document.getElementById('terms-modal').close()" class="bg-[#17191c] hover:bg-[#2c3138] text-white px-[24px] py-[10px] rounded-[8px] font-['Inter'] font-semibold text-[14px] transition-colors">
+            Close
+        </button>
+    </div>
+</dialog>

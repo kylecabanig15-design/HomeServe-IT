@@ -1,0 +1,151 @@
+@model List<HomeServeIT.Web.Models.SupportTicket>
+@{
+    ViewData["Title"] = "Customer support";
+    var currentStatus = ViewBag.Status as string ?? "Open";
+    var selectedTicketId = ViewBag.SelectedTicketId is int selectedId ? selectedId : (int?)null;
+    var statuses = new[] { "Open", "In Progress", "Resolved", "All" };
+
+    string StatusClasses(string status) => status switch
+    {
+        "Resolved" => "border-emerald-200 bg-emerald-50 text-emerald-700",
+        "In Progress" => "border-amber-200 bg-amber-50 text-amber-700",
+        _ => "border-blue-200 bg-blue-50 text-blue-700"
+    };
+}
+
+<div class="mx-auto flex w-full max-w-7xl flex-col gap-6 p-5 sm:p-8"
+     x-init="@if (selectedTicketId.HasValue) { <text>$nextTick(() => document.getElementById('admin-support-ticket-@selectedTicketId')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))</text> }">
+    <header class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+        <div>
+            <div class="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                <partial name="~/Views/Shared/_AppIcon.cshtml" model='"message-circle"' />
+                CRM workspace
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight text-[#17191c]">Customer support</h1>
+            <p class="mt-1 max-w-2xl text-sm leading-6 text-[#5d6470]">Review customer requests, respond from one queue, and keep their ticket status current.</p>
+        </div>
+        <div class="rounded-xl border border-[#e1e7ef] bg-white px-4 py-3 shadow-sm">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-[#8a929e]">Showing</p>
+            <p class="mt-0.5 text-sm font-bold text-[#17191c]">@Model.Count @currentStatus.ToLowerInvariant() request@(Model.Count == 1 ? "" : "s")</p>
+        </div>
+    </header>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800" role="status">
+            <span class="text-emerald-600"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"check-circle"' /></span>
+            @TempData["SuccessMessage"]
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800" role="alert">
+            <span class="text-red-600"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"alert-circle"' /></span>
+            @TempData["ErrorMessage"]
+        </div>
+    }
+
+    <nav class="flex gap-1 overflow-x-auto rounded-xl border border-[#e1e7ef] bg-white p-1.5 shadow-sm" aria-label="Support status filters">
+        @foreach (var status in statuses)
+        {
+            <a asp-area="Admin" asp-controller="Support" asp-action="Index" asp-route-status="@status"
+               class="whitespace-nowrap rounded-lg px-4 py-2 text-xs font-bold transition @(currentStatus == status ? "bg-[#0878f9] text-white shadow-sm" : "text-[#5d6470] hover:bg-[#f5f7fa] hover:text-[#17191c]")">
+                @status
+            </a>
+        }
+    </nav>
+
+    @if (Model.Count == 0)
+    {
+        <div class="flex min-h-[340px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#cfd7e2] bg-white px-6 text-center">
+            <span class="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"check-circle"' /></span>
+            <h2 class="text-base font-bold text-[#17191c]">No @currentStatus.ToLowerInvariant() support requests</h2>
+            <p class="mt-1 max-w-md text-sm leading-6 text-[#5d6470]">There is nothing in this queue right now. Use another status filter to review previous requests.</p>
+        </div>
+    }
+    else
+    {
+        <section class="grid gap-4" aria-label="Customer support requests">
+            @foreach (var ticket in Model)
+            {
+                var isSelected = selectedTicketId == ticket.SupportTicketID;
+                <article id="admin-support-ticket-@ticket.SupportTicketID"
+                         x-data="{ replyOpen: @(isSelected ? "true" : "false") }"
+                         class="overflow-hidden rounded-2xl border bg-white shadow-sm transition @(isSelected ? "border-[#0878f9] ring-4 ring-blue-50" : "border-[#e1e7ef]")">
+                    <header class="grid gap-4 border-b border-[#edf0f4] px-5 py-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:px-6">
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="font-['JetBrains_Mono'] text-[11px] font-bold text-[#0878f9]">SUP-@ticket.SupportTicketID.ToString("D4")</span>
+                                <span class="rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide @StatusClasses(ticket.Status)">@ticket.Status</span>
+                            </div>
+                            <h2 class="mt-2 text-base font-bold text-[#17191c]">@ticket.Subject</h2>
+                            <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#6b7686]">
+                                <span class="inline-flex items-center gap-1.5"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"user"' />@ticket.Customer.FirstName @ticket.Customer.LastName</span>
+                                <span>@ticket.Customer.User.Email</span>
+                                <time datetime="@ticket.CreatedAt.ToString("O")">@ticket.CreatedAt.ToLocalTime().ToString("MMM d, yyyy · h:mm tt")</time>
+                            </div>
+                        </div>
+                        <button type="button" @@click="replyOpen = !replyOpen" :aria-expanded="replyOpen" class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0878f9] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-100">
+                            <partial name="~/Views/Shared/_AppIcon.cshtml" model='"message-circle"' />
+                            <span x-text="replyOpen ? 'Close response' : '@(string.IsNullOrWhiteSpace(ticket.AdminResponse) ? "Respond" : "Update response")'"></span>
+                        </button>
+                    </header>
+
+                    <div class="grid gap-4 p-5 lg:grid-cols-2 lg:p-6">
+                        <div class="rounded-xl bg-[#f8fafc] p-4">
+                            <p class="mb-1 text-[10px] font-bold uppercase tracking-wider text-[#8a929e]">Customer message</p>
+                            <p class="whitespace-pre-line text-sm leading-6 text-[#3f4650]">@ticket.Message</p>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(ticket.AdminResponse))
+                        {
+                            <div class="rounded-xl border border-blue-100 bg-blue-50/70 p-4">
+                                <p class="mb-1 text-[10px] font-bold uppercase tracking-wider text-blue-700">Current admin response</p>
+                                <p class="whitespace-pre-line text-sm leading-6 text-[#273142]">@ticket.AdminResponse</p>
+                                @if (ticket.RespondedAt.HasValue)
+                                {
+                                    <time class="mt-3 block text-[11px] text-[#6b7686]" datetime="@ticket.RespondedAt.Value.ToString("O")">Updated @ticket.RespondedAt.Value.ToLocalTime().ToString("MMM d, yyyy · h:mm tt")</time>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="flex items-center gap-3 rounded-xl border border-amber-100 bg-amber-50/70 p-4 text-sm text-amber-800">
+                                <span class="shrink-0"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"clock"' /></span>
+                                This customer is waiting for an admin response.
+                            </div>
+                        }
+                    </div>
+
+                    <form x-show="replyOpen" x-transition style="display:none" asp-area="Admin" asp-controller="Support" asp-action="Reply" method="post" class="grid gap-4 border-t border-[#e1e7ef] bg-[#f8fafc] p-5 lg:grid-cols-[minmax(0,1fr)_220px] lg:p-6">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@ticket.SupportTicketID" />
+                        <label class="grid gap-2 lg:row-span-2">
+                            <span class="text-xs font-bold uppercase tracking-wide text-[#5d6470]">Response visible to customer</span>
+                            <textarea name="response" maxlength="2000" required rows="6" placeholder="Write a clear next step for the customer." class="h-full min-h-[144px] resize-y rounded-xl border border-[#dce2ea] bg-white px-3.5 py-3 text-sm leading-6 text-[#17191c] outline-none transition placeholder:text-[#a1a8b2] focus:border-[#0878f9] focus:ring-4 focus:ring-blue-100">@ticket.AdminResponse</textarea>
+                        </label>
+                        <label class="grid content-start gap-2">
+                            <span class="text-xs font-bold uppercase tracking-wide text-[#5d6470]">Ticket status</span>
+                            <select name="status" class="ui-select h-11" required>
+                                @foreach (var statusOption in new[] { "Open", "In Progress", "Resolved" })
+                                {
+                                    if (ticket.Status == statusOption)
+                                    {
+                                        <option value="@statusOption" selected>@statusOption</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@statusOption">@statusOption</option>
+                                    }
+                                }
+                            </select>
+                        </label>
+                        <button type="submit" class="inline-flex h-11 items-center justify-center gap-2 self-end rounded-xl bg-[#0878f9] px-5 text-sm font-semibold text-white hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-100">
+                            <partial name="~/Views/Shared/_AppIcon.cshtml" model='"check-circle"' />
+                            Save and notify customer
+                        </button>
+                    </form>
+                </article>
+            }
+        </section>
+    }
+</div>

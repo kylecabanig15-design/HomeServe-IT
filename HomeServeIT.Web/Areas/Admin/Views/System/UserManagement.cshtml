@@ -1,0 +1,247 @@
+@model IEnumerable<HomeServeIT.Web.Models.ApplicationUser>
+@inject Microsoft.AspNetCore.Identity.UserManager<HomeServeIT.Web.Models.ApplicationUser> UserManager
+@{
+    ViewData["Title"] = "User management";
+}
+
+<div x-data="{ showInviteModal: false, showActionModal: false, showEditModal: false, actionUserId: '', actionUserEmail: '', actionType: '', activeTab: 'all', editUserId: '', editUserEmail: '', editUserRole: '' }" class="content-stretch flex flex-col items-start max-w-7xl p-[32px] relative shrink-0 w-full mx-auto">
+    <!-- Header -->
+    <div class="flex items-start justify-between w-full">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <h1 class="font-['Inter'] font-[650] leading-[42px] relative shrink-0 text-[#17191c] text-[28px] whitespace-nowrap">
+                User management
+            </h1>
+            <p class="font-['Inter'] font-normal leading-[21px] mt-1 relative shrink-0 text-[#5d6470] text-[14px] whitespace-nowrap">
+                Manage admin and staff accounts.
+            </p>
+        </div>
+        <button @@click="showInviteModal = true" class="bg-[#0878f9] hover:bg-blue-600 transition-colors text-white font-['Inter'] font-semibold text-[14px] px-[16px] py-[10px] rounded-[8px] shadow-sm">
+            Invite user
+        </button>
+    </div>
+    
+    <!-- Tabs -->
+    <div class="flex items-center gap-2 mt-8 bg-white border border-[#e7eaf0] rounded-[12px] p-1 shadow-sm w-fit">
+        <button @@click="activeTab = 'all'" :class="{ 'bg-white border-[#e7eaf0] shadow-sm text-[#17191c]': activeTab === 'all', 'border-transparent text-[#5d6470] hover:bg-gray-50': activeTab !== 'all' }" class="flex items-center gap-2 px-3 py-1.5 border rounded-[8px] transition-colors">
+            <span class="font-['Inter'] font-[550] text-[13px]">All</span>
+            <span :class="{ 'bg-[#edf5ff] text-[#0878f9]': activeTab === 'all', 'bg-gray-100 text-[#8a929e]': activeTab !== 'all' }" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full">@Model.Count()</span>
+        </button>
+        <button @@click="activeTab = 'Admin'" :class="{ 'bg-white border-[#e7eaf0] shadow-sm text-[#17191c]': activeTab === 'Admin', 'border-transparent text-[#5d6470] hover:bg-gray-50': activeTab !== 'Admin' }" class="flex items-center gap-2 px-3 py-1.5 border rounded-[8px] transition-colors">
+            <span class="font-['Inter'] font-[550] text-[13px]">Admins</span>
+        </button>
+        <button @@click="activeTab = 'Technician'" :class="{ 'bg-white border-[#e7eaf0] shadow-sm text-[#17191c]': activeTab === 'Technician', 'border-transparent text-[#5d6470] hover:bg-gray-50': activeTab !== 'Technician' }" class="flex items-center gap-2 px-3 py-1.5 border rounded-[8px] transition-colors">
+            <span class="font-['Inter'] font-[550] text-[13px]">Technicians</span>
+        </button>
+        <button @@click="activeTab = 'Customer'" :class="{ 'bg-white border-[#e7eaf0] shadow-sm text-[#17191c]': activeTab === 'Customer', 'border-transparent text-[#5d6470] hover:bg-gray-50': activeTab !== 'Customer' }" class="flex items-center gap-2 px-3 py-1.5 border rounded-[8px] transition-colors">
+            <span class="font-['Inter'] font-[550] text-[13px]">Customers</span>
+        </button>
+    </div>
+
+    <!-- Table -->
+    <div class="w-full mt-6 bg-white border border-[#e7eaf0] rounded-[16px] overflow-hidden shadow-sm">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b border-[#e7eaf0]">
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">User</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Role</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Status</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider">Last Login</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#8a929e] uppercase tracking-wider text-right">Action</th>
+                </tr>
+            </thead>
+            <tbody class="font-['Inter'] text-[13px] text-[#17191c]">
+                
+                @foreach (var user in Model)
+                {
+                    var roles = await UserManager.GetRolesAsync(user);
+                    var primaryRole = roles.FirstOrDefault() ?? "User";
+                    
+                    <tr x-show="activeTab === 'all' || activeTab === '@primaryRole'" class="border-b border-[#e7eaf0] last:border-0 hover:bg-gray-50 transition-colors">
+                        <td class="py-4 px-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-[#0878f9] text-white flex items-center justify-center font-bold text-[13px]">
+                                    @(string.IsNullOrEmpty(user.Email) ? "?" : user.Email.Substring(0,1).ToUpper())
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-[#17191c]">@user.Email</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-4 px-6">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700">@primaryRole</span>
+                        </td>
+                        <td class="py-4 px-6">
+                            @if (user.LockoutEnd != null && user.LockoutEnd > DateTimeOffset.UtcNow)
+                            {
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium bg-amber-50 text-amber-700">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Paused
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium bg-green-50 text-green-700">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Active
+                                </span>
+                            }
+                        </td>
+                        <td class="py-4 px-6 text-[#5d6470]">
+                            @(user.LastLogin?.ToString("MMM dd, yyyy HH:mm") ?? "-")
+                        </td>
+                        <td class="py-4 px-6 text-right">
+                            <button @@click="editUserId = '@user.Id'; editUserEmail = '@user.Email'; editUserRole = '@primaryRole'; showEditModal = true" class="text-[#0878f9] hover:text-blue-700 font-medium mr-3" title="Edit">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                            </button>
+                            @if (user.LockoutEnd != null && user.LockoutEnd > DateTimeOffset.UtcNow)
+                            {
+                                <button @@click="actionUserId = '@user.Id'; actionUserEmail = '@user.Email'; actionType = 'unpause'; showActionModal = true" class="text-green-600 hover:text-green-800 font-medium mr-3" title="Resume account">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                                </button>
+                            }
+                            else
+                            {
+                                <button @@click="actionUserId = '@user.Id'; actionUserEmail = '@user.Email'; actionType = 'pause'; showActionModal = true" class="text-amber-600 hover:text-amber-800 font-medium mr-3" title="Pause account">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                </button>
+                            }
+                            <button @@click="actionUserId = '@user.Id'; actionUserEmail = '@user.Email'; actionType = 'archive'; showActionModal = true" class="text-red-600 hover:text-red-800 font-medium" title="Archive">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                            </button>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                {
+                    <tr>
+                        <td colspan="5" class="py-8 text-center text-[#8a929e] font-['Inter']">No users found.</td>
+                    </tr>
+                }
+
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Invite Modal -->
+    <div x-show="showInviteModal" style="display: none;" class="relative z-[100]" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div x-show="showInviteModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 bg-gray-500/75 backdrop-blur-sm transition-opacity"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div x-show="showInviteModal" @@click.away="showInviteModal = false" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="relative transform overflow-hidden rounded-[24px] bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-[#e7eaf0]">
+                    <div class="bg-white px-6 pb-6 pt-6">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
+                                <h3 class="text-[20px] font-bold leading-6 text-[#17191c]" id="modal-title">Invite new user</h3>
+                                <div class="mt-2">
+                                    <p class="text-[14px] text-[#5d6470]">Enter their email and role to send an invite.</p>
+                                </div>
+                                <form method="post" asp-action="InviteUser" asp-controller="System" asp-area="Admin" class="mt-6">
+                                    @Html.AntiForgeryToken()
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Email address</label>
+                                            <input type="email" name="email" required class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" placeholder="user@example.com" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Role</label>
+                                            <select name="role" class="ui-select text-[14px]">
+                                                <option value="@HomeServeIT.Web.Constants.Roles.Administrator">Administrator</option>
+                                                <option value="@HomeServeIT.Web.Constants.Roles.Technician">Technician</option>
+                                                <option value="@HomeServeIT.Web.Constants.Roles.Customer">Customer</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="mt-8 flex items-center justify-end gap-3">
+                                        <button type="button" @@click="showInviteModal = false" class="px-4 py-2 text-[14px] font-semibold text-[#17191c] bg-white border border-[#e7eaf0] rounded-lg shadow-sm hover:bg-gray-50 transition-colors">Cancel</button>
+                                        <button type="submit" class="px-4 py-2 text-[14px] font-semibold text-white bg-[#0878f9] rounded-lg shadow-sm hover:bg-blue-600 transition-colors">Send invite</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Modal -->
+    <div x-show="showActionModal" style="display: none;" class="relative z-[100]" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div x-show="showActionModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 bg-gray-500/75 backdrop-blur-sm transition-opacity"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div x-show="showActionModal" @@click.away="showActionModal = false" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="relative transform overflow-hidden rounded-[24px] bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-md border border-[#e7eaf0]">
+                    <div class="bg-white px-6 pb-6 pt-6">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                                <h3 class="text-[20px] font-bold leading-6 text-[#17191c]" id="modal-title">
+                                    <span x-show="actionType === 'pause'">Pause Account</span>
+                                    <span x-show="actionType === 'unpause'">Resume Account</span>
+                                    <span x-show="actionType === 'archive'">Archive User</span>
+                                </h3>
+                                <div class="mt-2">
+                                    <p class="text-[14px] text-[#5d6470]" x-show="actionType === 'pause'">Are you sure you want to pause <span class="font-semibold text-[#17191c]" x-text="actionUserEmail"></span>? Their access will be temporarily blocked — they won't be able to log in until resumed.</p>
+                                    <p class="text-[14px] text-[#5d6470]" x-show="actionType === 'unpause'">Are you sure you want to resume <span class="font-semibold text-[#17191c]" x-text="actionUserEmail"></span>? They will regain full access to the system.</p>
+                                    <p class="text-[14px] text-[#5d6470]" x-show="actionType === 'archive'">Are you sure you want to archive <span class="font-semibold text-[#17191c]" x-text="actionUserEmail"></span>? Their account will be deactivated and hidden from active users.</p>
+                                </div>
+                                <form method="post" :action="actionType === 'pause' ? '@Url.Action("SuspendUser")' : (actionType === 'unpause' ? '@Url.Action("UnsuspendUser")' : '@Url.Action("ArchiveUser")')" class="mt-6">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="userId" x-model="actionUserId" />
+                                    <div class="mt-8 flex items-center justify-end gap-3">
+                                        <button type="button" @@click="showActionModal = false" class="px-4 py-2 text-[14px] font-semibold text-[#17191c] bg-white border border-[#e7eaf0] rounded-lg shadow-sm hover:bg-gray-50 transition-colors">Cancel</button>
+                                        <button type="submit" class="px-4 py-2 text-[14px] font-semibold text-white rounded-lg shadow-sm transition-colors" :class="{ 'bg-amber-600 hover:bg-amber-700': actionType === 'pause', 'bg-green-600 hover:bg-green-700': actionType === 'unpause', 'bg-red-600 hover:bg-red-700': actionType === 'archive' }" x-text="actionType === 'pause' ? 'Pause Account' : (actionType === 'unpause' ? 'Resume Account' : 'Archive')"></button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div x-show="showEditModal" style="display: none;" class="relative z-[100]" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div x-show="showEditModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 bg-gray-500/75 backdrop-blur-sm transition-opacity"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div x-show="showEditModal" @@click.away="showEditModal = false" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="relative transform overflow-hidden rounded-[24px] bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-[#e7eaf0]">
+                    <div class="bg-white px-6 pb-6 pt-6">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
+                                <h3 class="text-[20px] font-bold leading-6 text-[#17191c]" id="modal-title">Edit user</h3>
+                                <div class="mt-2">
+                                    <p class="text-[14px] text-[#5d6470]">Update details or assign a new role.</p>
+                                </div>
+                                <form method="post" asp-action="EditUser" asp-controller="System" asp-area="Admin" class="mt-6">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="userId" x-model="editUserId" />
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Email address</label>
+                                            <input type="email" name="email" x-model="editUserEmail" required class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" placeholder="user@example.com" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Role</label>
+                                            <select name="role" x-model="editUserRole" class="ui-select text-[14px]">
+                                                <option value="@HomeServeIT.Web.Constants.Roles.Administrator">Administrator</option>
+                                                <option value="@HomeServeIT.Web.Constants.Roles.Technician">Technician</option>
+                                                <option value="@HomeServeIT.Web.Constants.Roles.Customer">Customer</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Reset Password (Optional)</label>
+                                            <input type="password" name="password" class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" placeholder="Leave blank to keep current password" />
+                                        </div>
+                                    </div>
+                                    <div class="mt-8 flex items-center justify-end gap-3">
+                                        <button type="button" @@click="showEditModal = false" class="px-4 py-2 text-[14px] font-semibold text-[#17191c] bg-white border border-[#e7eaf0] rounded-lg shadow-sm hover:bg-gray-50 transition-colors">Cancel</button>
+                                        <button type="submit" class="px-4 py-2 text-[14px] font-semibold text-white bg-[#0878f9] rounded-lg shadow-sm hover:bg-blue-600 transition-colors">Save changes</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

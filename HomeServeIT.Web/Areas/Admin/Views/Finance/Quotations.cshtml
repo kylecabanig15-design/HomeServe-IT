@@ -1,0 +1,64 @@
+@model IEnumerable<HomeServeIT.Web.Models.Invoice>
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Quotations";
+    var quotes = Model.ToList();
+    var pendingCount = quotes.Count(q => q.QuotationStatus == "PendingAdmin");
+    var approvedCount = quotes.Count(q => q.QuotationStatus == "ApprovedByAdmin" || q.QuotationStatus == "Approved");
+    var inventoryUsages = ViewBag.InventoryUsages as IEnumerable<HomeServeIT.Web.Models.JobInventoryUsage> ?? [];
+}
+
+<div x-data="{ filter: 'all', query: '', reviewOpen: false, quote: null, openReview(q) { this.quote = q; this.reviewOpen = true; } }" class="flex flex-col max-w-7xl p-4 sm:p-6 lg:p-8 w-full mx-auto gap-6">
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div><p class="text-[11px] font-bold uppercase tracking-[0.16em] text-[#0878f9] mb-1">Finance workspace</p><h1 class="font-['Inter'] font-bold text-3xl tracking-tight text-[#17191c]">Quotations</h1><p class="mt-1 text-sm text-[#5d6470]">Review technician estimates before they are sent to customers.</p></div>
+        @if (pendingCount > 0) { <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"><p class="text-xs font-semibold text-amber-800"><strong class="text-lg mr-1">@pendingCount</strong> awaiting your review</p></div> }
+    </div>
+
+    @if (TempData["SuccessMessage"] != null) { <div class="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 4 4L19 6"/></svg>@TempData["SuccessMessage"]</div> }
+    @if (TempData["ErrorMessage"] != null) { <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">@TempData["ErrorMessage"]</div> }
+
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div class="flex items-center gap-1 rounded-xl border border-[#e7eaf0] bg-white p-1">
+            <button @@click="filter='all'" :class="filter==='all' ? 'bg-gray-100 text-[#17191c]' : 'text-[#5d6470]'" class="rounded-lg px-3 py-2 text-xs font-semibold">All <span class="ml-1 text-[10px]">@quotes.Count</span></button>
+            <button @@click="filter='pending'" :class="filter==='pending' ? 'bg-amber-50 text-amber-700' : 'text-[#5d6470]'" class="rounded-lg px-3 py-2 text-xs font-semibold">Needs review <span class="ml-1 text-[10px]">@pendingCount</span></button>
+            <button @@click="filter='approved'" :class="filter==='approved' ? 'bg-emerald-50 text-emerald-700' : 'text-[#5d6470]'" class="rounded-lg px-3 py-2 text-xs font-semibold">Approved <span class="ml-1 text-[10px]">@approvedCount</span></button>
+        </div>
+        <input x-model="query" type="search" placeholder="Search customer, job, or quote…" class="w-full md:w-72 rounded-xl border border-[#e7eaf0] px-4 py-2.5 text-sm outline-none focus:border-[#0878f9] focus:ring-4 focus:ring-blue-50" />
+    </div>
+
+    <div class="bg-white border border-[#e7eaf0] rounded-2xl overflow-x-auto shadow-sm"><table class="w-full min-w-[900px] text-left">
+        <thead class="border-b border-[#e7eaf0] bg-[#f9fafb]"><tr class="text-[11px] font-bold uppercase tracking-wider text-[#8a929e]"><th class="px-5 py-3">Quote</th><th class="px-5 py-3">Customer &amp; service</th><th class="px-5 py-3">Submitted</th><th class="px-5 py-3">Proposed total</th><th class="px-5 py-3">Status</th><th class="px-5 py-3 text-right">Action</th></tr></thead>
+        <tbody class="divide-y divide-[#e7eaf0]">
+        @foreach (var quote in quotes)
+        {
+            var isPending = quote.QuotationStatus == "PendingAdmin"; var isApproved = quote.QuotationStatus is "ApprovedByAdmin" or "Approved";
+            var technicianName = quote.ServiceRequest?.Technician == null ? "Unassigned technician" : $"{quote.ServiceRequest.Technician.FirstName} {quote.ServiceRequest.Technician.LastName}";
+            var searchable = $"QT-{quote.DateIssued.Year}-{quote.InvoiceID:D4} JOB-{quote.RequestID:D4} {quote.ServiceRequest?.Customer?.FirstName} {quote.ServiceRequest?.Customer?.LastName} {technicianName} {quote.ServiceRequest?.IssueDescription}".ToLowerInvariant().Replace("'", "\\'");
+            var parts = inventoryUsages.Where(u => u.RequestID == quote.RequestID).Select(u => new { name = u.InventoryItem.ItemName, sku = u.InventoryItem.SKU, quantity = u.Quantity, available = u.InventoryItem.StockQuantity, unitPrice = u.UnitPrice, sufficient = u.InventoryItem.StockQuantity >= u.Quantity }).ToList();
+            var quoteJson = JsonSerializer.Serialize(new { invoiceId = quote.InvoiceID, requestId = quote.RequestID, quoteCode = $"QT-{quote.DateIssued.Year}-{quote.InvoiceID:D4}", customer = $"{quote.ServiceRequest?.Customer?.FirstName} {quote.ServiceRequest?.Customer?.LastName}".Trim(), technician = technicianName, service = quote.ServiceRequest?.IssueDescription ?? "General Service", totalAmount = quote.TotalAmount, breakdown = quote.BreakdownDetails ?? "", parts });
+            <tr x-show="(filter === 'all' || (filter === 'pending' && @isPending.ToString().ToLower()) || (filter === 'approved' && @isApproved.ToString().ToLower())) && (!query || '@searchable'.includes(query.toLowerCase()))" class="hover:bg-gray-50/70">
+                <td class="px-5 py-4"><p class="font-['JetBrains_Mono'] text-xs font-semibold text-[#0878f9]">QT-@quote.DateIssued.Year-@quote.InvoiceID.ToString("D4")</p><p class="mt-1 text-[11px] text-[#8a929e]">JOB-@quote.RequestID.ToString("D4")</p></td>
+                <td class="px-5 py-4"><p class="text-sm font-semibold">@quote.ServiceRequest?.Customer?.FirstName @quote.ServiceRequest?.Customer?.LastName</p><p class="mt-0.5 max-w-[300px] truncate text-xs text-[#8a929e]">@(quote.ServiceRequest?.IssueDescription ?? "General Service")</p><p class="mt-1 text-[11px] font-medium text-blue-600">Technician: @technicianName</p></td>
+                <td class="px-5 py-4 text-xs text-[#5d6470]">@quote.DateIssued.ToString("MMM d, yyyy · h:mm tt")</td>
+                <td class="px-5 py-4 text-sm font-bold">@quote.TotalAmount.ToString("C2", new System.Globalization.CultureInfo("en-PH"))</td>
+                <td class="px-5 py-4">@if (isPending) { <span class="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">Needs review</span> } else if (isApproved) { <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">Approved &amp; sent</span> } else { <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-700">@quote.QuotationStatus</span> }</td>
+                <td class="px-5 py-4 text-right">@if (isPending) { <button type="button" @@click='openReview(@Html.Raw(quoteJson))' class="rounded-lg bg-[#0878f9] px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-600">Review quotation</button> } else { <span class="text-xs text-[#8a929e]">No action needed</span> }</td>
+            </tr>
+        }
+        @if (!quotes.Any()) { <tr><td colspan="6" class="py-16 text-center"><p class="text-sm font-semibold text-[#17191c]">No quotations yet</p><p class="mt-1 text-xs text-[#8a929e]">Technician proposals will appear here for review.</p></td></tr> }
+        </tbody>
+    </table></div>
+
+    <div x-show="reviewOpen" style="display:none" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" @@click.self="reviewOpen=false">
+        <div class="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div class="border-b border-[#e7eaf0] p-5 flex justify-between"><div><p class="text-[10px] font-bold uppercase tracking-wider text-[#0878f9]">Admin review</p><h2 class="mt-1 text-lg font-bold" x-text="quote?.quoteCode"></h2></div><button type="button" @@click="reviewOpen=false" class="ui-icon-button !h-8 !w-8" aria-label="Close review"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 6-12 12M6 6l12 12"/></svg></button></div>
+            <form asp-area="Admin" asp-controller="Finance" asp-action="ApproveQuotation" method="post" class="p-5 flex flex-col gap-4">@Html.AntiForgeryToken()<input type="hidden" name="invoiceId" :value="quote?.invoiceId"/>
+                <div class="rounded-xl bg-blue-50 p-4"><p class="text-sm font-semibold text-blue-950" x-text="quote?.customer"></p><p class="mt-1 text-xs text-blue-800" x-text="quote?.service"></p><div class="mt-3 border-t border-blue-100 pt-3 flex items-center gap-2"><span class="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">TECH</span><div><p class="text-[10px] uppercase font-bold text-blue-500">Submitted by</p><p class="text-xs font-semibold text-blue-950" x-text="quote?.technician"></p></div></div></div>
+                <div><div class="flex items-center justify-between mb-2"><label class="text-xs font-bold">Allocated inventory</label><span class="text-[10px] font-semibold text-[#8a929e]" x-text="`${quote?.parts?.length || 0} item(s)`"></span></div><div class="rounded-xl border border-[#e7eaf0] divide-y divide-[#e7eaf0] overflow-hidden"><template x-for="part in quote?.parts || []" :key="part.name"><div class="p-3 flex items-center justify-between gap-3"><div class="min-w-0"><p class="truncate text-xs font-semibold" x-text="part.name"></p><p class="text-[10px] text-[#8a929e]" x-text="`${part.sku || 'No SKU'} · ₱${part.unitPrice.toLocaleString()} each`"></p></div><div class="text-right shrink-0"><p class="text-xs font-bold" x-text="`× ${part.quantity}`"></p><p class="text-[10px] font-semibold" :class="part.sufficient ? 'text-emerald-600' : 'text-red-600'" x-text="part.sufficient ? `${part.available} in stock` : `Only ${part.available} available`"></p></div></div></template><div x-show="!quote?.parts?.length" class="p-3 text-xs text-[#8a929e]">No inventory parts attached.</div></div></div>
+                <div><label class="mb-1.5 block text-xs font-semibold">Final customer price (₱)</label><input type="number" min="0.01" step="0.01" name="finalAmount" :value="quote?.totalAmount" required class="w-full rounded-lg border border-[#e7eaf0] px-3 py-2.5 text-sm focus:border-[#0878f9] outline-none"/></div>
+                <div><label class="mb-1.5 block text-xs font-semibold">Customer-facing breakdown</label><textarea name="finalBreakdown" rows="5" x-text="quote?.breakdown" required class="w-full rounded-lg border border-[#e7eaf0] px-3 py-2.5 text-sm focus:border-[#0878f9] outline-none"></textarea><p class="mt-1 text-[11px] text-[#8a929e]">Review parts, labor, and wording before approval.</p></div>
+                <div class="flex justify-end gap-3 pt-2"><button type="button" @@click="reviewOpen=false" class="rounded-lg border px-4 py-2 text-sm font-semibold">Cancel</button><button type="submit" :disabled="quote?.parts?.some(p => !p.sufficient)" class="rounded-lg bg-[#0878f9] disabled:bg-gray-300 disabled:cursor-not-allowed px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600">Approve &amp; send to customer</button></div>
+            </form>
+        </div>
+    </div>
+</div>

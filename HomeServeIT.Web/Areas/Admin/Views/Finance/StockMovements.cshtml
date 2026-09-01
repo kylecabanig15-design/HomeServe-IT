@@ -1,0 +1,302 @@
+@model IEnumerable<HomeServeIT.Web.Models.StockMovement>
+@{
+    ViewData["Title"] = "Stock movements & audit trail";
+    var items = ViewBag.Items as IEnumerable<HomeServeIT.Web.Models.InventoryItem> ?? new List<HomeServeIT.Web.Models.InventoryItem>();
+    var selectedMovementType = ViewBag.SelectedMovementType as string ?? "All";
+    var selectedItemId = (int)(ViewBag.SelectedItemId ?? 0);
+    var search = ViewBag.Search as string ?? "";
+    var totalUsedInJobs = (int)(ViewBag.TotalUsedInJobs ?? 0);
+    var totalRestocked = (int)(ViewBag.TotalRestocked ?? 0);
+    var totalValueConsumed = (decimal)(ViewBag.TotalValueConsumed ?? 0m);
+    var totalTransactions = (int)(ViewBag.TotalTransactions ?? 0);
+}
+
+<div class="content-stretch flex flex-col items-start max-w-7xl p-6 sm:p-8 relative shrink-0 w-full mx-auto font-['Inter']">
+
+    <!-- Breadcrumbs & Header -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full pb-6 border-b border-[#e7eaf0]">
+        <div>
+            <div class="flex items-center gap-2 text-xs font-semibold text-[#8a929e] mb-1.5">
+                <a asp-area="Admin" asp-controller="Finance" asp-action="Inventory" class="hover:text-[#0878f9] transition-colors">Materials inventory</a>
+                <span>/</span>
+                <span class="text-[#17191c]">Stock movements</span>
+            </div>
+            <h1 class="font-['Inter'] font-bold text-[#17191c] text-2xl sm:text-[28px] tracking-tight">
+                Stock movements &amp; audit trail
+            </h1>
+            <p class="font-['Inter'] text-[#5d6470] text-sm mt-1">
+                Complete historical record of parts used, technicians involved, destination service requests, and restocks.
+            </p>
+        </div>
+        <div class="flex items-center gap-3 shrink-0">
+            <a asp-area="Admin" asp-controller="Finance" asp-action="Inventory" 
+               class="bg-white border border-[#e7eaf0] hover:bg-gray-50 text-[#17191c] font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors shadow-2xs inline-flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                Back to inventory
+            </a>
+        </div>
+    </div>
+
+    <!-- KPI Metric Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 w-full mt-6">
+        
+        <!-- Total Used in Jobs -->
+        <div class="bg-white border border-[#e7eaf0] rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-3">
+                <span class="font-bold text-xs text-[#8a929e] uppercase tracking-wider">Parts Used on Jobs</span>
+                <span class="w-8 h-8 rounded-xl bg-blue-50 text-[#0878f9] flex items-center justify-center">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                </span>
+            </div>
+            <div>
+                <p class="font-bold text-[#17191c] text-3xl">@totalUsedInJobs <span class="text-sm font-normal text-[#8a929e]">units</span></p>
+                <p class="text-xs text-[#5d6470] mt-1.5 flex items-center gap-1 font-medium">
+                    <span class="text-blue-600 font-semibold">Dispatched</span> to service requests
+                </p>
+            </div>
+        </div>
+
+        <!-- Total Consumed Valuation -->
+        <div class="bg-white border border-[#e7eaf0] rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-3">
+                <span class="font-bold text-xs text-[#8a929e] uppercase tracking-wider">Job Material Value</span>
+                <span class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </span>
+            </div>
+            <div>
+                <p class="font-bold text-[#17191c] text-3xl">₱@totalValueConsumed.ToString("N2")</p>
+                <p class="text-xs text-[#5d6470] mt-1.5 flex items-center gap-1 font-medium">
+                    Billable parts on client quotes
+                </p>
+            </div>
+        </div>
+
+        <!-- Total Restocked Inflow -->
+        <div class="bg-white border border-[#e7eaf0] rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-3">
+                <span class="font-bold text-xs text-[#8a929e] uppercase tracking-wider">Restock Inflow</span>
+                <span class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </span>
+            </div>
+            <div>
+                <p class="font-bold text-[#178a4b] text-3xl">+@totalRestocked <span class="text-sm font-normal text-[#8a929e]">units</span></p>
+                <p class="text-xs text-[#5d6470] mt-1.5 flex items-center gap-1 font-medium">
+                    Supplier deliveries &amp; registrations
+                </p>
+            </div>
+        </div>
+
+        <!-- Total Transactions Recorded -->
+        <div class="bg-white border border-[#e7eaf0] rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-3">
+                <span class="font-bold text-xs text-[#8a929e] uppercase tracking-wider">Audit Log Entries</span>
+                <span class="w-8 h-8 rounded-xl bg-gray-100 text-[#5d6470] flex items-center justify-center">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                </span>
+            </div>
+            <div>
+                <p class="font-bold text-[#17191c] text-3xl">@totalTransactions</p>
+                <p class="text-xs text-[#5d6470] mt-1.5 flex items-center gap-1 font-medium">
+                    Full lifecycle transactions tracked
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search & Filter Controls -->
+    <div class="mt-6 w-full bg-white border border-[#e7eaf0] p-4 rounded-2xl shadow-2xs">
+        <form method="get" asp-action="StockMovements" class="flex flex-col md:flex-row items-center justify-between gap-3">
+            
+            <!-- Search bar -->
+            <div class="w-full md:w-96 bg-gray-50 border border-[#e7eaf0] flex h-10 items-center px-3 rounded-xl focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0878f9]/20 focus-within:border-[#0878f9] transition-all">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a929e" stroke-width="2" class="mr-2 shrink-0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" name="search" value="@search" placeholder="Search by item, SKU, technician, job..." class="bg-transparent border-none outline-none font-normal text-[#17191c] placeholder:text-[#8a929e] text-xs sm:text-sm flex-1 min-w-0" />
+                @if (!string.IsNullOrEmpty(search))
+                {
+                    <a asp-action="StockMovements" class="text-xs text-[#8a929e] hover:text-[#17191c] ml-1">✕</a>
+                }
+            </div>
+
+            <!-- Filters -->
+            <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+                
+                <!-- Movement Type Filter -->
+                <select name="movementType" onchange="this.form.submit()" class="bg-white border border-[#e7eaf0] text-[#17191c] font-medium text-xs rounded-xl px-3 py-2 outline-none focus:border-[#0878f9] shadow-2xs cursor-pointer">
+                    <option value="All" selected="@(selectedMovementType == "All")">All Movement Types</option>
+                    <option value="Job Usage" selected="@(selectedMovementType == "Job Usage")">Job Usage / Deduction</option>
+                    <option value="Restock" selected="@(selectedMovementType == "Restock")">Restock / Replenishment</option>
+                    <option value="Initial Stock" selected="@(selectedMovementType == "Initial Stock")">Initial Stock Intake</option>
+                    <option value="Manual Adjustment" selected="@(selectedMovementType == "Manual Adjustment")">Manual Adjustment</option>
+                </select>
+
+                <!-- Item Filter -->
+                <select name="itemId" onchange="this.form.submit()" class="bg-white border border-[#e7eaf0] text-[#17191c] font-medium text-xs rounded-xl px-3 py-2 outline-none focus:border-[#0878f9] shadow-2xs cursor-pointer max-w-[200px] truncate">
+                    <option value="0" selected="@(selectedItemId == 0)">All Inventory Items</option>
+                    @foreach (var itm in items)
+                    {
+                        <option value="@itm.ItemID" selected="@(selectedItemId == itm.ItemID)">@itm.ItemName</option>
+                    }
+                </select>
+
+                <button type="submit" class="bg-[#0878f9] hover:bg-blue-700 text-white font-semibold text-xs px-3.5 py-2 rounded-xl transition-colors shadow-2xs">
+                    Filter
+                </button>
+
+                @if (selectedMovementType != "All" || selectedItemId != 0 || !string.IsNullOrEmpty(search))
+                {
+                    <a asp-action="StockMovements" class="bg-gray-100 hover:bg-gray-200 text-[#5d6470] font-semibold text-xs px-3 py-2 rounded-xl transition-colors">
+                        Reset
+                    </a>
+                }
+            </div>
+        </form>
+    </div>
+
+    <!-- Movement History Table -->
+    <div class="w-full mt-6 bg-white border border-[#e7eaf0] rounded-2xl shadow-2xs overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-[#e7eaf0] bg-[#f8fafc]">
+                        <th class="py-4 px-5 font-[650] text-[11px] text-[#5d6470] uppercase tracking-wider w-[170px]">Date &amp; Time</th>
+                        <th class="py-4 px-5 font-[650] text-[11px] text-[#5d6470] uppercase tracking-wider w-[220px]">Item &amp; SKU</th>
+                        <th class="py-4 px-5 font-[650] text-[11px] text-[#5d6470] uppercase tracking-wider w-[140px]">Movement</th>
+                        <th class="py-4 px-5 font-[650] text-[11px] text-[#5d6470] uppercase tracking-wider w-[180px]">Who Handled / Used</th>
+                        <th class="py-4 px-5 font-[650] text-[11px] text-[#5d6470] uppercase tracking-wider min-w-[260px]">Where Did It Go (Destination)</th>
+                        <th class="py-4 px-5 font-[650] text-[11px] text-[#5d6470] uppercase tracking-wider w-[130px] text-right">Value Impact</th>
+                    </tr>
+                </thead>
+                <tbody class="text-[13px] text-[#17191c] divide-y divide-[#e7eaf0]">
+                    @if (Model.Any())
+                    {
+                        @foreach (var move in Model)
+                        {
+                            var isDeduction = move.Quantity < 0;
+                            var absQty = Math.Abs(move.Quantity);
+                            var totalLineVal = absQty * move.UnitPrice;
+
+                            <tr class="hover:bg-gray-50/60 transition-colors">
+                                
+                                <!-- Timestamp -->
+                                <td class="py-4 px-5 align-top">
+                                    <div class="flex flex-col">
+                                        <span class="font-semibold text-[#17191c]">@move.Timestamp.ToLocalTime().ToString("MMM d, yyyy")</span>
+                                        <span class="text-[11px] text-[#8a929e] flex items-center gap-1 mt-0.5 font-mono">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                            @move.Timestamp.ToLocalTime().ToString("h:mm tt")
+                                        </span>
+                                    </div>
+                                </td>
+
+                                <!-- Item Details -->
+                                <td class="py-4 px-5 align-top">
+                                    <div class="flex flex-col min-w-0">
+                                        <span class="font-bold text-[#17191c] truncate">@move.InventoryItem.ItemName</span>
+                                        <div class="flex items-center gap-1.5 mt-1">
+                                            <span class="font-mono text-[10.5px] font-semibold text-[#5d6470] bg-gray-100 px-1.5 py-0.5 rounded">
+                                                @(string.IsNullOrEmpty(move.InventoryItem.SKU) ? "NO-SKU" : move.InventoryItem.SKU)
+                                            </span>
+                                            <span class="text-[11px] text-[#8a929e] truncate">· @move.InventoryItem.Category</span>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <!-- Movement & Qty Badge -->
+                                <td class="py-4 px-5 align-top">
+                                    <div class="flex flex-col gap-1 items-start">
+                                        @if (move.MovementType == "Job Usage")
+                                        {
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-[#0878f9] border border-blue-200">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                                -@absQty @(absQty == 1 ? "pc" : "pcs")
+                                            </span>
+                                            <span class="text-[10px] text-[#8a929e] font-semibold uppercase tracking-wider">Job Usage</span>
+                                        }
+                                        else if (move.MovementType == "Restock" || move.MovementType == "Initial Stock")
+                                        {
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                                +@move.Quantity @(move.Quantity == 1 ? "pc" : "pcs")
+                                            </span>
+                                            <span class="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider">@move.MovementType</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                                @(move.Quantity > 0 ? $"+{move.Quantity}" : $"{move.Quantity}") pcs
+                                            </span>
+                                            <span class="text-[10px] text-[#8a929e] font-semibold uppercase tracking-wider">Adjustment</span>
+                                        }
+                                    </div>
+                                </td>
+
+                                <!-- Who Handled / Performed -->
+                                <td class="py-4 px-5 align-top">
+                                    <div class="flex items-start gap-2.5">
+                                        <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                                            @move.PerformedBy.FirstOrDefault()
+                                        </div>
+                                        <div class="flex flex-col min-w-0">
+                                            <span class="font-semibold text-[#17191c] truncate">@move.PerformedBy</span>
+                                            <span class="text-[11px] text-[#8a929e]">
+                                                @(move.PerformedBy.Contains("Technician") ? "Field Service Tech" : "Inventory Admin")
+                                            </span>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <!-- Where Did It Go (Destination) -->
+                                <td class="py-4 px-5 align-top">
+                                    <div class="flex flex-col gap-1">
+                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                            @if (move.RequestID.HasValue)
+                                            {
+                                                <span class="font-mono text-xs font-bold text-[#0878f9] bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-md">
+                                                    #JOB-@move.RequestID.Value.ToString("D4")
+                                                </span>
+                                            }
+                                            <span class="font-semibold text-[#17191c]">@move.DestinationOrSource</span>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(move.Notes))
+                                        {
+                                            <p class="text-[11.5px] text-[#5d6470] italic leading-relaxed">
+                                                “@move.Notes”
+                                            </p>
+                                        }
+                                    </div>
+                                </td>
+
+                                <!-- Value Impact -->
+                                <td class="py-4 px-5 align-top text-right">
+                                    <div class="flex flex-col items-end">
+                                        <span class="font-bold text-[#17191c]">₱@totalLineVal.ToString("N2")</span>
+                                        <span class="text-[11px] text-[#8a929e]">₱@move.UnitPrice.ToString("N2") each</span>
+                                    </div>
+                                </td>
+
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" class="py-16 text-center">
+                                <div class="flex flex-col items-center justify-center max-w-sm mx-auto">
+                                    <div class="w-12 h-12 rounded-2xl bg-gray-100 text-[#8a929e] flex items-center justify-center mb-3">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                                    </div>
+                                    <h3 class="font-bold text-base text-[#17191c]">No stock movements found</h3>
+                                    <p class="text-xs text-[#5d6470] mt-1">Try adjusting your search criteria or movement filters.</p>
+                                    <a asp-action="StockMovements" class="mt-4 text-xs font-semibold text-[#0878f9] hover:underline">Clear all filters</a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>

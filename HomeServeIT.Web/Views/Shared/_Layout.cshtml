@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - HomeServe IT</title>
+    
+    <!-- Tailwind CSS (compiled) -->
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/print.css" asp-append-version="true" media="print" />
+    
+    <!-- Alpine Plugins & Core -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@@alpinejs/intersect@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="~/js/site.js" asp-append-version="true"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-[#fcfdfd] text-dark font-sans antialiased flex flex-col min-h-screen relative overflow-x-hidden">
+    
+    <!-- Ambient Apple Aurora Background -->
+    <div class="fixed inset-0 z-[-1] overflow-hidden pointer-events-none bg-[#fcfdfd]">
+        <!-- Top Left Glow -->
+        <div class="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-400/20 rounded-full mix-blend-multiply filter blur-[140px] animate-blob-1"></div>
+        
+        <!-- Top Right Glow -->
+        <div class="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-purple-300/20 rounded-full mix-blend-multiply filter blur-[160px] animate-blob-2 animation-delay-2000"></div>
+        
+        <!-- Center Pulsing Core -->
+        <div class="absolute top-[30%] left-[30%] w-[800px] h-[800px] bg-indigo-200/20 rounded-full mix-blend-multiply filter blur-[180px] animate-pulse-glow animation-delay-4000"></div>
+        
+        <!-- Bottom Right Glow -->
+        <div class="absolute bottom-[-10%] right-[10%] w-[600px] h-[600px] bg-cyan-300/20 rounded-full mix-blend-multiply filter blur-[140px] animate-blob-3 animation-delay-6000"></div>
+        
+        <!-- Bottom Left Glow -->
+        <div class="absolute bottom-[-20%] left-[-10%] w-[700px] h-[700px] bg-blue-300/20 rounded-full mix-blend-multiply filter blur-[150px] animate-blob-1 animation-delay-4000"></div>
+    </div>
+    
+    <!-- Navigation -->
+    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-[22px] border-b border-[#e7eaf0]">
+        <div class="max-w-[1152px] mx-auto px-[32px] h-[64px] flex items-center">
+            
+            <!-- Logo -->
+            <a asp-area="" asp-controller="Home" asp-action="Index" class="flex items-center gap-2 group">
+                <div class="bg-primary text-white w-7 h-7 rounded-lg flex items-center justify-center shadow-sm group-hover:bg-primary-hover transition-colors overflow-hidden">
+                    <img src="~/img/logo.svg" alt="Logo" class="w-full h-full object-contain" />
+                </div>
+                <span class="font-bold text-[15px] tracking-tight text-dark">HomeServe IT</span>
+            </a>
+
+            <!-- Nav Links -->
+            <nav class="hidden md:flex items-center gap-8 ml-[32px] flex-1">
+                <a href="/#services" class="text-[14px] font-semibold text-dark hover:text-primary transition-colors">Services</a>
+                <a href="/#how-it-works" class="text-[14px] font-semibold text-dark hover:text-primary transition-colors">How it works</a>
+                <a href="/#pricing" class="text-[14px] font-semibold text-dark hover:text-primary transition-colors">Pricing</a>
+                <a href="/#testimonials" class="text-[14px] font-semibold text-dark hover:text-primary transition-colors">Testimonials</a>
+            </nav>
+
+            <!-- Auth Actions -->
+            <div class="flex items-center gap-2">
+                <a asp-area="Identity" asp-page="/Account/Login" class="bg-white border border-[#e7eaf0] hover:bg-gray-50 text-dark text-[14px] font-semibold px-4 py-2 rounded-lg shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-95">
+                    Sign in
+                </a>
+                <a asp-area="Identity" asp-page="/Account/Register" class="bg-primary hover:bg-primary-hover text-white text-[14px] font-semibold px-4 py-2 rounded-lg shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-95">
+                    Get service
+                </a>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="flex-grow">
+        @RenderBody()
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-[#e7eaf0] bg-white mt-auto">
+        <div class="max-w-[1152px] mx-auto px-[32px] h-[80px] flex justify-between items-center w-full">
+            <div class="flex items-center gap-2 font-bold text-dark">
+                <div class="bg-primary w-5 h-5 rounded-md flex items-center justify-center overflow-hidden">
+                    <img src="~/img/logo.svg" alt="Logo" class="w-full h-full object-contain" />
+                </div>
+                <span class="text-[15px] font-bold">HomeServe IT</span>
+            </div>
+            <p class="text-[13px] text-[#8a929e] font-normal m-0 p-0">
+                &copy; 2026 HomeServe IT. Davao City, Philippines.
+            </p>
+        </div>
+    </footer>
+
+    <partial name="_ModalPartial" />
+    
+    <!-- Alpine.js Intersect Plugin for scroll animations is now in head -->
+    
+    @await RenderSectionAsync("Scripts", required: false)
+    <partial name="~/Views/Shared/_ToastPartial.cshtml" />
+</body>
+</html>

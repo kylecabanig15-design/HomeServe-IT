@@ -1,0 +1,276 @@
+@model HomeServeIT.Web.Areas.Admin.Models.AdminDashboardViewModel
+@{
+    ViewData["Title"] = "Overview";
+}
+
+<div class="content-stretch flex flex-col items-start max-w-7xl p-[32px] relative shrink-0 w-full mx-auto">
+    <div class="content-stretch flex flex-col items-start relative shrink-0 w-full">
+        <h1 class="font-['Inter'] font-[650] leading-[42px] relative shrink-0 text-[#17191c] text-[28px] whitespace-nowrap">
+            Overview
+        </h1>
+        <p class="font-['Inter'] font-normal leading-[21px] mt-1 relative shrink-0 text-[#5d6470] text-[14px] whitespace-nowrap">
+            @DateTime.Now.ToString("dddd, MMM d, yyyy") &middot; Operations summary
+        </p>
+    </div>
+    
+    <!-- Top Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full mt-8">
+        <!-- Card 1 -->
+        <div class="bg-white border border-[#e7eaf0] border-solid flex flex-col items-start p-[20px] rounded-[16px] shadow-sm hover:shadow-md transition-shadow">
+            <p class="font-['Inter'] font-[550] leading-[19.5px] text-[#5d6470] text-[13px]">Active requests</p>
+            <p class="font-['Inter'] font-[650] leading-[30px] text-[#17191c] text-[30px] mt-2">@Model.TotalActiveRequests</p>
+            <p class="font-['Inter'] font-normal leading-[18px] text-[#8a929e] text-[12px] mt-1">Pending / scheduled / in progress</p>
+        </div>
+        
+        <!-- Card 2 -->
+        <div class="bg-white border border-[#e7eaf0] border-solid flex flex-col items-start p-[20px] rounded-[16px] shadow-sm hover:shadow-md transition-shadow">
+            <p class="font-['Inter'] font-[550] leading-[19.5px] text-[#5d6470] text-[13px]">Jobs today</p>
+            <p class="font-['Inter'] font-[650] leading-[30px] text-[#17191c] text-[30px] mt-2">@Model.JobsTodayCount</p>
+            <p class="font-['Inter'] font-normal leading-[18px] text-[#8a929e] text-[12px] mt-1">Scheduled for today</p>
+        </div>
+        
+        <!-- Card 3 -->
+        <div class="bg-white border border-[#e7eaf0] border-solid flex flex-col items-start p-[20px] rounded-[16px] shadow-sm hover:shadow-md transition-shadow">
+            <p class="font-['Inter'] font-[550] leading-[19.5px] text-[#5d6470] text-[13px]">Technicians</p>
+            <p class="font-['Inter'] font-[650] leading-[30px] text-[#178a4b] text-[30px] mt-2">@Model.TotalTechnicians</p>
+            <p class="font-['Inter'] font-normal leading-[18px] text-[#8a929e] text-[12px] mt-1">@Model.AvailableTechniciansCount available now</p>
+        </div>
+        
+        <!-- Card 4 -->
+        <div class="bg-white border border-[#e7eaf0] border-solid flex flex-col items-start p-[20px] rounded-[16px] shadow-sm hover:shadow-md transition-shadow">
+            <p class="font-['Inter'] font-[550] leading-[19.5px] text-[#5d6470] text-[13px]">Outstanding invoices</p>
+            <p class="font-['Inter'] font-[650] leading-[30px] text-[#a96500] text-[30px] mt-2">@Model.OutstandingInvoicesAmount.ToString("C0", new System.Globalization.CultureInfo("en-PH"))</p>
+            <p class="font-['Inter'] font-normal leading-[18px] text-[#8a929e] text-[12px] mt-1">@Model.OutstandingInvoicesCount unpaid or overdue</p>
+        </div>
+    </div>
+    
+    <!-- Second Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full mt-6">
+        <!-- Card 1 -->
+        <div class="bg-white border border-[#e7eaf0] border-solid flex flex-col items-start p-[20px] rounded-[16px] shadow-sm hover:shadow-md transition-shadow">
+            <p class="font-['Inter'] font-[550] leading-[19.5px] text-[#5d6470] text-[13px]">Total revenue</p>
+            <p class="font-['Inter'] font-[650] leading-[30px] text-[#0878f9] text-[30px] mt-2">@Model.TotalRevenue.ToString("C0", new System.Globalization.CultureInfo("en-PH"))</p>
+            <p class="font-['Inter'] font-normal leading-[18px] text-[#8a929e] text-[12px] mt-1">From paid invoices</p>
+        </div>
+        
+        <!-- Card 2 -->
+        <div class="bg-white border border-[#e7eaf0] border-solid flex flex-col items-start p-[20px] rounded-[16px] shadow-sm hover:shadow-md transition-shadow">
+            <p class="font-['Inter'] font-[550] leading-[19.5px] text-[#5d6470] text-[13px]">Low-stock items</p>
+            <p class="font-['Inter'] font-[650] leading-[30px] text-[#d13b3b] text-[30px] mt-2">@Model.LowStockItemsCount</p>
+            <p class="font-['Inter'] font-normal leading-[18px] text-[#8a929e] text-[12px] mt-1">Needs reorder</p>
+        </div>
+        
+        <!-- Card 3 -->
+        <div class="bg-white border border-[#e7eaf0] border-solid flex flex-col items-start p-[20px] rounded-[16px] shadow-sm hover:shadow-md transition-shadow">
+            <p class="font-['Inter'] font-[550] leading-[19.5px] text-[#5d6470] text-[13px]">New customers</p>
+            <p class="font-['Inter'] font-[650] leading-[30px] text-[#17191c] text-[30px] mt-2">@Model.NewCustomersThisWeekCount</p>
+            <p class="font-['Inter'] font-normal leading-[18px] text-[#8a929e] text-[12px] mt-1">Joined this week</p>
+        </div>
+        
+        <!-- Card 4 -->
+        <div class="bg-white border border-[#e7eaf0] border-solid flex flex-col items-start p-[20px] rounded-[16px] shadow-sm hover:shadow-md transition-shadow">
+            <p class="font-['Inter'] font-[550] leading-[19.5px] text-[#5d6470] text-[13px]">Completed jobs</p>
+            <p class="font-['Inter'] font-[650] leading-[30px] text-[#178a4b] text-[30px] mt-2">@Model.CompletedJobsThisMonthCount</p>
+            <p class="font-['Inter'] font-normal leading-[18px] text-[#8a929e] text-[12px] mt-1">This month</p>
+        </div>
+    </div>
+    
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full mt-6 h-auto lg:h-[280px]">
+        
+        <!-- Monthly Revenue Chart -->
+        <div class="bg-white border border-[#e7eaf0] border-solid flex flex-col p-[20px] rounded-[16px] shadow-sm lg:col-span-2 relative min-h-[200px]">
+            <div class="flex items-center justify-between w-full mb-4">
+                <p class="font-['Inter'] font-semibold leading-[21px] text-[#17191c] text-[14px]">Monthly revenue</p>
+                <p class="font-['Inter'] font-normal leading-[18px] text-[#8a929e] text-[12px]">Last 6 months</p>
+            </div>
+            
+            <div class="flex-1 w-full h-[200px] relative">
+                <canvas id="revenueChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Job Status Distribution -->
+        <div class="bg-white border border-[#e7eaf0] border-solid flex flex-col p-[20px] rounded-[16px] shadow-sm">
+            <p class="font-['Inter'] font-semibold leading-[21px] text-[#17191c] text-[14px]">Job status distribution</p>
+            
+            <div class="flex items-center justify-center gap-6 flex-1 mt-4">
+                <!-- Donut Chart Canvas with Center Text -->
+                <div class="relative w-[120px] h-[120px]">
+                    <canvas id="statusDonutChart"></canvas>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span class="text-[20px] font-bold text-[#17191c]">@Model.TotalJobsCount</span>
+                        <span class="text-[10px] text-[#8a929e]">Total</span>
+                    </div>
+                </div>
+                
+                <!-- Legend -->
+                <div class="flex flex-col gap-1.5 text-[12px] font-['Inter']">
+                    <div class="flex items-center justify-between w-[120px]">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#178a4b]"></span>
+                            <span class="text-[#5d6470]">Completed</span>
+                        </div>
+                        <span class="font-semibold">@Model.CompletedCount</span>
+                    </div>
+                    <div class="flex items-center justify-between w-[120px]">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#0878f9]"></span>
+                            <span class="text-[#5d6470]">In Progress</span>
+                        </div>
+                        <span class="font-semibold">@Model.InProgressCount</span>
+                    </div>
+                    <div class="flex items-center justify-between w-[120px]">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#00bcd4]"></span>
+                            <span class="text-[#5d6470]">Scheduled</span>
+                        </div>
+                        <span class="font-semibold">@Model.ScheduledCount</span>
+                    </div>
+                    <div class="flex items-center justify-between w-[120px]">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#f59e0b]"></span>
+                            <span class="text-[#5d6470]">Pending</span>
+                        </div>
+                        <span class="font-semibold">@Model.PendingCount</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bottom Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full mt-6 h-auto lg:h-[280px]">
+        
+        <!-- Request Volume Chart -->
+        <div class="bg-white border border-[#e7eaf0] border-solid flex flex-col p-[20px] rounded-[16px] shadow-sm relative min-h-[200px]">
+            <div class="flex items-center justify-between w-full mb-4">
+                <p class="font-['Inter'] font-semibold leading-[21px] text-[#17191c] text-[14px]">Request volume</p>
+                <p class="font-['Inter'] font-normal leading-[18px] text-[#8a929e] text-[12px]">Last 6 months</p>
+            </div>
+            
+            <div class="flex-1 w-full h-[200px] relative">
+                <canvas id="requestChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Recent Activity -->
+        <div class="bg-white border border-[#e7eaf0] border-solid flex flex-col p-[20px] rounded-[16px] shadow-sm">
+            <p class="font-['Inter'] font-semibold leading-[21px] text-[#17191c] text-[14px]">Recent activity</p>
+            
+            <div class="flex flex-col mt-4">
+                @foreach (var request in Model.RecentRequests)
+                {
+                    <div class="flex items-center justify-between py-3 border-b border-[#e7eaf0] last:border-0">
+                        <div class="flex items-center gap-3">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a929e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                            <p class="font-['Inter'] text-[13px] text-[#5d6470]">Request #@request.RequestID for @request.Customer?.FirstName @request.Customer?.LastName (@request.Status)</p>
+                        </div>
+                        <p class="font-['Inter'] text-[12px] text-[#8a929e]">@request.ScheduledDate.ToString("MMM dd")</p>
+                    </div>
+                }
+                @if (!Model.RecentRequests.Any())
+                {
+                    <p class="font-['Inter'] text-[13px] text-[#5d6470] py-4">No recent activity.</p>
+                }
+            </div>
+            
+            <div class="mt-4 flex gap-2 w-full flex-wrap">
+                <button onclick="window.location.href='@Url.Action("Customers", "Crm", new { area = "Admin" })'" class="flex-1 py-2 px-3 border border-[#e7eaf0] rounded-lg text-[13px] font-semibold text-[#17191c] hover:bg-gray-50 transition-colors">Add customer</button>
+                <button onclick="window.location.href='@Url.Action("ServiceRequests", "Operations", new { area = "Admin" })'" class="flex-1 py-2 px-3 border border-[#e7eaf0] rounded-lg text-[13px] font-semibold text-[#17191c] hover:bg-gray-50 transition-colors">New request</button>
+                <button onclick="window.location.href='@Url.Action("ServiceRequests", "Operations", new { area = "Admin" })'" class="flex-1 py-2 px-3 border border-[#e7eaf0] rounded-lg text-[13px] font-semibold text-[#17191c] hover:bg-gray-50 transition-colors">Assign tech</button>
+                <button onclick="window.location.href='@Url.Action("Quotations", "Finance", new { area = "Admin" })'" class="flex-1 py-2 px-3 border border-[#e7eaf0] rounded-lg text-[13px] font-semibold text-[#17191c] hover:bg-gray-50 transition-colors">Create quote</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async function () {
+            try {
+                const response = await fetch('@Url.Action("GetChartData", "Dashboard", new { area = "Admin" })');
+                const data = await response.json();
+                
+                new Chart(document.getElementById('revenueChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Revenue (₱)',
+                            data: data.revenueData,
+                            backgroundColor: '#0878f9',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { display: true, color: '#f1f5f9' }, border: { display: false } },
+                            x: { grid: { display: false }, border: { display: false } }
+                        }
+                    }
+                });
+
+                new Chart(document.getElementById('requestChart'), {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Requests',
+                            data: data.requestData,
+                            borderColor: '#00bcd4',
+                            backgroundColor: 'rgba(0, 188, 212, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { display: true, color: '#f1f5f9' }, border: { display: false }, ticks: { stepSize: 1 } },
+                            x: { grid: { display: false }, border: { display: false } }
+                        }
+                    }
+                });
+                // Status Donut Chart
+                const totalJobs = @Model.TotalJobsCount;
+                const donutData = totalJobs > 0 
+                    ? [@Model.CompletedCount, @Model.InProgressCount, @Model.ScheduledCount, @Model.PendingCount]
+                    : [0, 0, 0, 0];
+                const donutBg = totalJobs > 0
+                    ? ['#178a4b', '#0878f9', '#00bcd4', '#f59e0b']
+                    : ['#e7eaf0', '#e7eaf0', '#e7eaf0', '#e7eaf0'];
+
+                new Chart(document.getElementById('statusDonutChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Completed', 'In Progress', 'Scheduled', 'Pending'],
+                        datasets: [{
+                            data: totalJobs > 0 ? donutData : [1],
+                            backgroundColor: totalJobs > 0 ? donutBg : ['#e7eaf0'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '72%',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: totalJobs > 0 }
+                        }
+                    }
+                });
+            } catch (err) {
+                console.error("Error loading chart data", err);
+            }
+        });
+    </script>
+}

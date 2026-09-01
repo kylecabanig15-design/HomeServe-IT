@@ -1,0 +1,100 @@
+@model IEnumerable<HomeServeIT.Web.Models.Invoice>
+@{
+    ViewData["Title"] = "Quotations";
+    var allCount = Model.Count();
+    var pendingCount = Model.Count(i => i.PaymentStatus == "Unpaid");
+    var approvedCount = Model.Count(i => i.PaymentStatus == "Paid");
+    var rejectedCount = Model.Count(i => i.PaymentStatus == "Voided");
+}
+
+<div class="flex flex-col p-[32px] max-w-7xl mx-auto w-full gap-[32px]" x-data="{ currentTab: 'All' }">
+    
+    <!-- Page Header -->
+    <div class="flex flex-col gap-[4px]">
+        <h1 class="font-['Inter'] font-bold text-[28px] leading-[35px] tracking-tight text-[#17191c]">
+            Quotations
+        </h1>
+        <p class="font-['Inter'] text-[15px] leading-[21px] text-[#5d6470]">
+            Review and approve service estimates before work begins.
+        </p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-[8px] bg-gray-50/50 p-[4px] rounded-[10px] border border-[#e7eaf0] w-fit">
+        <button @@click="currentTab = 'All'" :class="currentTab === 'All' ? 'bg-white text-[#17191c] shadow-sm' : 'text-[#5d6470] hover:text-[#17191c]'" class="px-[12px] py-[6px] rounded-[6px] font-['Inter'] font-[550] text-[13px] flex items-center gap-[6px] transition-colors">
+            All <span class="bg-gray-100 text-gray-600 px-[6px] py-[2px] rounded-full text-[11px]">@allCount</span>
+        </button>
+        <button @@click="currentTab = 'Unpaid'" :class="currentTab === 'Unpaid' ? 'bg-white text-[#17191c] shadow-sm' : 'text-[#5d6470] hover:text-[#17191c]'" class="px-[12px] py-[6px] rounded-[6px] font-['Inter'] font-[550] text-[13px] flex items-center gap-[6px] transition-colors">
+            Pending <span class="bg-yellow-50 text-yellow-600 px-[6px] py-[2px] rounded-full text-[11px]">@pendingCount</span>
+        </button>
+        <button @@click="currentTab = 'Paid'" :class="currentTab === 'Paid' ? 'bg-white text-[#17191c] shadow-sm' : 'text-[#5d6470] hover:text-[#17191c]'" class="px-[12px] py-[6px] rounded-[6px] font-['Inter'] font-[550] text-[13px] flex items-center gap-[6px] transition-colors">
+            Approved <span class="bg-gray-100 text-gray-600 px-[6px] py-[2px] rounded-full text-[11px]">@approvedCount</span>
+        </button>
+        <button @@click="currentTab = 'Voided'" :class="currentTab === 'Voided' ? 'bg-white text-[#17191c] shadow-sm' : 'text-[#5d6470] hover:text-[#17191c]'" class="px-[12px] py-[6px] rounded-[6px] font-['Inter'] font-[550] text-[13px] flex items-center gap-[6px] transition-colors">
+            Rejected <span class="bg-gray-100 text-gray-600 px-[6px] py-[2px] rounded-full text-[11px]">@rejectedCount</span>
+        </button>
+    </div>
+
+    <!-- Quotations List -->
+    <div class="flex flex-col gap-[20px]">
+        
+        @foreach (var quotation in Model)
+        {
+            var statusText = quotation.PaymentStatus == "Unpaid" ? "Sent" : (quotation.PaymentStatus == "Paid" ? "Approved" : "Rejected");
+            <a x-show="currentTab === 'All' || currentTab === '@quotation.PaymentStatus'" 
+               href="@Url.Action("Details", "Quotations", new { id = quotation.InvoiceID })"
+               class="bg-white border border-[#e7eaf0] rounded-[12px] p-[20px] shadow-sm flex items-center justify-between hover:border-[#0878f9] cursor-pointer transition-colors group block">
+                <div class="flex flex-col">
+                    <div class="flex items-center gap-[12px]">
+                        <span class="font-['Inter'] font-[600] text-[16px] text-[#17191c]">QT-@quotation.DateIssued.Year-@quotation.InvoiceID.ToString("D4")</span>
+                        
+                        @{
+                            var statusClass = "bg-gray-100 text-gray-700";
+                            var dotClass = "bg-gray-400";
+                            if (statusText == "Sent")
+                            {
+                                statusClass = "bg-yellow-50 text-yellow-700";
+                                dotClass = "bg-yellow-500";
+                            }
+                            else if (statusText == "Approved")
+                            {
+                                statusClass = "bg-green-50 text-green-700";
+                                dotClass = "bg-green-500";
+                            }
+                            else if (statusText == "Rejected")
+                            {
+                                statusClass = "bg-red-50 text-red-700";
+                                dotClass = "bg-red-500";
+                            }
+                        }
+                        
+                        <span class="inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-full @statusClass font-['Inter'] font-[600] text-[11px]">
+                            <span class="w-[6px] h-[6px] rounded-full @dotClass"></span> @statusText
+                        </span>
+                    </div>
+                    <span class="font-['Inter'] text-[15px] text-[#17191c] mt-[8px]">@quotation.ServiceRequest?.IssueDescription</span>
+                    <span class="font-['Inter'] text-[14px] text-[#5d6470] mt-[4px]">SR-@quotation.ServiceRequest?.ScheduledDate.Year-@quotation.ServiceRequest?.RequestID.ToString("D4") &middot; Valid until @quotation.DateIssued.AddDays(14).ToString("MMM d, yyyy")</span>
+                </div>
+                <div class="flex flex-col items-end gap-[8px]">
+                    <span class="font-['Inter'] font-bold text-[24px] text-[#17191c]">@quotation.TotalAmount.ToString("C2", new System.Globalization.CultureInfo("en-PH"))</span>
+                    <div class="flex gap-[8px]">
+                        <button class="opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-[#e7eaf0] hover:bg-gray-50 text-[#17191c] text-[13px] font-['Inter'] font-[550] px-[12px] py-[6px] rounded-[6px] shadow-sm flex items-center gap-[6px]" onclick="event.preventDefault(); window.print(); event.stopPropagation();">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Download PDF
+                        </button>
+                        <span class="opacity-0 group-hover:opacity-100 transition-opacity bg-[#0878f9] text-white text-[13px] font-['Inter'] font-[550] px-[12px] py-[6px] rounded-[6px] shadow-sm flex items-center gap-[6px]">
+                            View Details
+                        </span>
+                    </div>
+                </div>
+            </a>
+        }
+        @if (!Model.Any())
+        {
+            <div class="py-[32px] text-center font-['Inter'] text-[#8a929e] text-[14px]">
+                No quotations found.
+            </div>
+        }
+        
+    </div>
+</div>

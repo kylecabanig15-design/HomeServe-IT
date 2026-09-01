@@ -1,0 +1,109 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@model HomeServeIT.Web.Models.NotificationFeedViewModel
+@{
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+
+    string GetItemClass(string controller, string action)
+    {
+        var isActive = currentController == controller && (string.IsNullOrEmpty(action) || currentAction == action);
+        return isActive 
+            ? "bg-[#edf5ff] content-stretch flex gap-[12px] items-center px-[12px] py-[8px] relative rounded-[10px] shrink-0 w-full" 
+            : "content-stretch flex gap-[12px] items-center px-[12px] py-[8px] relative rounded-[10px] shrink-0 w-full hover:bg-gray-50 transition-colors";
+    }
+
+    string GetTextClass(string controller, string action)
+    {
+        var isActive = currentController == controller && (string.IsNullOrEmpty(action) || currentAction == action);
+        return isActive
+            ? "font-['Inter'] font-[550] leading-[19.5px] relative shrink-0 text-[#0878f9] text-[13px] whitespace-nowrap"
+            : "font-['Inter'] font-[550] leading-[19.5px] relative shrink-0 text-[#5d6470] text-[13px] whitespace-nowrap group-hover:text-[#17191c] transition-colors";
+    }
+
+    string GetIconColor(string controller, string action)
+    {
+        var isActive = currentController == controller && (string.IsNullOrEmpty(action) || currentAction == action);
+        return isActive ? "#0878f9" : "#8a929e";
+    }
+}
+
+<!-- Navigation -->
+<div class="content-stretch flex flex-col gap-[2px] items-start relative shrink-0 w-full mt-2">
+    
+    <!-- Today (Dashboard) -->
+    <a asp-area="Technician" asp-controller="Dashboard" asp-action="Index" class="@GetItemClass("Dashboard", "Index") group">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="@GetIconColor("Dashboard", "Index")" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative shrink-0 group-hover:stroke-[#17191c] transition-colors">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+        </div>
+        <div class="content-stretch flex flex-[1_0_0] flex-col items-start min-w-px overflow-clip relative">
+            <p class="@GetTextClass("Dashboard", "Index")">Today</p>
+        </div>
+    </a>
+
+    <!-- My Schedule -->
+    <a asp-area="Technician" asp-controller="Schedule" asp-action="Index" class="@GetItemClass("Schedule", "Index") group">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="@GetIconColor("Schedule", "Index")" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative shrink-0 group-hover:stroke-[#17191c] transition-colors">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+        </div>
+        <div class="content-stretch flex flex-[1_0_0] flex-col items-start min-w-px overflow-clip relative">
+            <p class="@GetTextClass("Schedule", "Index")">My schedule</p>
+        </div>
+    </a>
+
+    <!-- Assigned Jobs -->
+    <a asp-area="Technician" asp-controller="AssignedJobs" asp-action="Index" class="@GetItemClass("AssignedJobs", "Index") group">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="@GetIconColor("AssignedJobs", "Index")" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative shrink-0 group-hover:stroke-[#17191c] transition-colors">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+        </div>
+        <div class="content-stretch flex flex-[1_0_0] flex-col items-start min-w-px overflow-clip relative">
+            <p class="@GetTextClass("AssignedJobs", "Index")">Assigned jobs</p>
+        </div>
+    </a>
+
+    <!-- Notifications -->
+    <a asp-area="Technician" asp-controller="Notifications" asp-action="Index" class="@GetItemClass("Notifications", "Index") group">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="@GetIconColor("Notifications", "Index")" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative shrink-0 group-hover:stroke-[#17191c] transition-colors">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+        </div>
+        <div class="content-stretch flex flex-[1_0_0] flex-col items-start min-w-px overflow-clip relative">
+            <p class="@GetTextClass("Notifications", "Index")">Notifications</p>
+        </div>
+        @if (Model.UnreadCount > 0)
+        {
+            <div class="bg-[#0878f9] flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full px-1">
+                <span class="text-center text-[10px] font-semibold leading-none text-white">@(Model.UnreadCount > 99 ? "99+" : Model.UnreadCount)</span>
+            </div>
+        }
+    </a>
+
+    <!-- Profile -->
+    <a asp-area="Technician" asp-controller="ProfileAndSettings" asp-action="Index" class="@GetItemClass("ProfileAndSettings", "Index") group">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="@GetIconColor("ProfileAndSettings", "Index")" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative shrink-0 group-hover:stroke-[#17191c] transition-colors">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+        </div>
+        <div class="content-stretch flex flex-[1_0_0] flex-col items-start min-w-px overflow-clip relative">
+            <p class="@GetTextClass("ProfileAndSettings", "Index")">Profile</p>
+        </div>
+    </a>
+
+</div>

@@ -1,0 +1,352 @@
+@using HomeServeIT.Web.Models
+@using HomeServeIT.Web.Areas.Customer.Models
+@using System.Text.Json
+@model CustomerDashboardViewModel
+@{
+    ViewData["Title"] = "Overview";
+    var activeReq = Model.LatestActiveRequest;
+    var invoice = Model.OutstandingInvoice;
+    var completedRequests = Model.AllRequests.Where(r => !r.IsArchived && r.Status == "Completed").ToList();
+    var latestCompleted = completedRequests.OrderByDescending(r => r.CompletedDate ?? r.ScheduledDate).FirstOrDefault();
+    var greeting = DateTime.Now.Hour < 12 ? "Good morning" : DateTime.Now.Hour < 17 ? "Good afternoon" : "Good evening";
+    string ServiceWidgetJson(ServiceRequest request) => JsonSerializer.Serialize(new
+    {
+        id = request.RequestID,
+        code = $"JOB-{request.ScheduledDate.Year}-{request.RequestID:D4}",
+        title = request.IssueDescription,
+        description = request.IssueDescription,
+        status = request.Status,
+        category = request.ServiceCategory,
+        priority = request.Priority,
+        scheduled = request.ScheduledDate.ToString("MMM d, yyyy · h:mm tt"),
+        completed = request.CompletedDate?.ToLocalTime().ToString("MMM d, yyyy · h:mm tt"),
+        technician = request.Technician == null ? "Assignment in progress" : $"{request.Technician.FirstName} {request.Technician.LastName}"
+    });
+}
+
+<div class="flex flex-col p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full gap-6 lg:gap-8"
+     x-data="{ serviceWidgetOpen: false, serviceWidget: null, openServiceWidget(data) { this.serviceWidget = data; this.serviceWidgetOpen = true; } }">
+    <!-- Welcome Header -->
+    <div class="flex flex-col gap-[4px]">
+        <h1 class="font-['Inter'] font-bold text-[28px] leading-[42px] tracking-tight text-[#17191c]">
+            @greeting, @Model.FirstName.
+        </h1>
+        <p class="font-['Inter'] text-[15px] leading-[21px] text-[#5d6470]">
+            @if (Model.ActiveRequestCount > 0)
+            {
+                <text>You have @Model.ActiveRequestCount active service request@(Model.ActiveRequestCount != 1 ? "s" : "").</text>
+            }
+            else
+            {
+                <text>@(completedRequests.Any() ? $"All caught up — {completedRequests.Count} service{(completedRequests.Count != 1 ? "s" : "")} completed." : "No active service requests. Everything looks good!")</text>
+            }
+        </p>
+    </div>
+
+    <!-- Top Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_306px] gap-5 items-stretch">
+        <!-- Upcoming Appointment -->
+        @if (activeReq != null)
+        {
+            var displayStatus = activeReq.Status switch { "Pending" => "Scheduled", "PendingAdminApproval" => "Pending", "PendingCustomerReview" => "Ready for your review", _ => activeReq.Status };
+            var stage = activeReq.Status switch { "Pending" => 1, "Diagnosing" => 2, "PendingAdminApproval" => 2, "In Progress" => 3, "PendingCustomerReview" => 4, _ => 1 };
+            var nextMessage = activeReq.Status switch { "Pending" => "Your appointment is booked. We’ll notify you when work begins.", "Diagnosing" => "Your technician is assessing the issue and preparing recommendations.", "PendingAdminApproval" => "The service team is reviewing the technician’s quotation.", "In Progress" => "Your technician is actively repairing and testing your equipment.", "PendingCustomerReview" => "The work is finished. Review the proof and confirm the result.", _ => "We’ll notify you when this service moves forward." };
+            var techInitials = activeReq.Technician == null ? "IT" : $"{activeReq.Technician.FirstName.FirstOrDefault()}{activeReq.Technician.LastName.FirstOrDefault()}";
+            <article class="relative overflow-hidden rounded-3xl border border-blue-200 bg-white shadow-[0_14px_40px_rgba(8,120,249,0.10)]">
+                <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-cyan-400"></div>
+                <div class="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-blue-100/70 blur-3xl pointer-events-none"></div>
+                <div class="relative p-5 sm:p-7 flex flex-col gap-6">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex items-center gap-2"><span class="text-[11px] font-bold uppercase tracking-[0.16em] text-[#0878f9]">Current service</span><span class="text-gray-300">·</span><span class="font-['JetBrains_Mono'] text-[11px] text-[#8a929e]">SR-@activeReq.ScheduledDate.Year-@activeReq.RequestID.ToString("D4")</span></div>
+                        <span class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700"><span class="h-2 w-2 rounded-full bg-blue-600 @(activeReq.Status == "In Progress" ? "animate-pulse" : "")"></span>@displayStatus</span>
+                    </div>
+
+                    <div class="max-w-2xl"><h2 class="font-['Inter'] text-2xl sm:text-[28px] leading-tight font-bold tracking-tight text-[#17191c]">@activeReq.IssueDescription</h2><p class="mt-2 max-w-xl text-sm leading-relaxed text-[#5d6470]">@nextMessage</p></div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="rounded-2xl border border-[#e7eaf0] bg-gray-50/70 p-4 flex items-center gap-3"><span class="w-10 h-10 shrink-0 rounded-xl bg-white border border-[#e7eaf0] text-[#0878f9] flex items-center justify-center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><div><p class="text-[10px] font-bold uppercase tracking-wider text-[#8a929e]">Scheduled visit</p><p class="mt-0.5 text-sm font-semibold text-[#17191c]">@activeReq.ScheduledDate.ToString("MMM d, yyyy · h:mm tt")</p></div></div>
+                        <div class="rounded-2xl border border-[#e7eaf0] bg-gray-50/70 p-4 flex items-center gap-3"><span class="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-bold">@techInitials</span><div class="min-w-0"><p class="text-[10px] font-bold uppercase tracking-wider text-[#8a929e]">Assigned technician</p><p class="mt-0.5 truncate text-sm font-semibold text-[#17191c]">@(activeReq.Technician == null ? "Assignment in progress" : $"{activeReq.Technician.FirstName} {activeReq.Technician.LastName}")</p><p class="truncate text-[11px] text-[#8a929e]">@(activeReq.Technician?.Specialty ?? "We’ll assign the best available specialist")</p></div></div>
+                    </div>
+
+                    <div><div class="mb-2 flex items-center justify-between"><span class="text-[11px] font-bold text-[#5d6470]">Service progress</span><span class="text-[11px] font-semibold text-[#0878f9]">Step @stage of 4</span></div><div class="grid grid-cols-4 gap-1.5">@for (var i = 1; i <= 4; i++) { <div class="h-2 rounded-full @(i <= stage ? "bg-[#0878f9]" : "bg-gray-200")"></div> }</div><div class="mt-2 grid grid-cols-4 text-[10px] text-[#8a929e]"><span>Booked</span><span class="text-center">Estimate</span><span class="text-center">Repair</span><span class="text-right">Review</span></div></div>
+
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-[#e7eaf0] pt-5"><p class="text-xs text-[#5d6470]">Updates, messages, quotation, and proof are available in the request workspace.</p><div class="flex gap-2"><a href="@Url.Action("Index", "ServiceRequests", new { area = "Customer", jobId = activeReq.RequestID, tab = "chat" })" class="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#e7eaf0] bg-white px-4 text-sm font-semibold text-[#17191c] hover:bg-gray-50"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"message-circle"' />Open messages</a><button type="button" data-service="@ServiceWidgetJson(activeReq)" @@click="openServiceWidget(JSON.parse($el.dataset.service))" class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0878f9] px-4 text-sm font-semibold text-white shadow-sm hover:bg-blue-600"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"wrench"' />View service</button></div></div>
+                </div>
+            </article>
+        }
+        else
+        {
+            <div class="flex-1 bg-gradient-to-br from-[#f8fafc] to-white border border-dashed border-[#d1d5db] overflow-hidden relative rounded-[16px] flex flex-col items-center justify-center p-[32px] text-center">
+                <div class="w-[64px] h-[64px] bg-blue-50/50 rounded-full flex items-center justify-center mb-[20px] shadow-[0_0_20px_rgba(8,120,249,0.1)]">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0878f9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                </div>
+                <h3 class="font-['Inter'] font-semibold text-[20px] text-[#17191c] mb-[8px]">No upcoming appointments</h3>
+                <p class="font-['Inter'] text-[14px] text-[#5d6470] mb-[24px] max-w-[280px]">Your IT infrastructure is looking good! Need help with something else?</p>
+                <a href="/Customer/ServiceRequests?open=create" class="bg-[#0878f9] text-white px-[24px] py-[12px] rounded-[10px] font-['Inter'] font-[550] text-[14px] hover:bg-blue-600 transition-all shadow-[0_4px_12px_rgba(8,120,249,0.3)] hover:shadow-[0_6px_16px_rgba(8,120,249,0.4)] hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-[8px]">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Request a service
+                </a>
+            </div>
+        }
+
+        <!-- Metrics Side -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
+            <div class="bg-white border border-solid border-[#e7eaf0] rounded-[16px] p-[20px] flex flex-col">
+                <span class="font-['Inter'] font-[650] text-[12px] uppercase tracking-[0.5px] text-[#8a929e]">Active requests</span>
+                <span class="font-['Inter'] font-bold text-[32px] text-[#17191c] mt-[8px]">@Model.ActiveRequestCount</span>
+                <span class="font-['Inter'] text-[13px] text-[#5d6470] mt-[8px]">
+                    @if (activeReq != null) { <text>Request #@activeReq.RequestID &middot; @activeReq.Status</text> } else { <text>No active requests</text> }
+                </span>
+            </div>
+            <div class="bg-white border border-solid border-[#e7eaf0] rounded-[16px] p-[20px] flex flex-col">
+                <span class="font-['Inter'] font-[650] text-[12px] uppercase tracking-[0.5px] text-[#8a929e]">Outstanding balance</span>
+                <span class="font-['Inter'] font-bold text-[32px] text-[#17191c] mt-[8px]">
+                    @(invoice != null ? $"₱{invoice.TotalAmount:N2}" : "₱0.00")
+                </span>
+                <span class="font-['Inter'] text-[13px] text-[#5d6470] mt-[8px]">
+                    @(invoice != null ? $"Invoice #{invoice.InvoiceID} &middot; {invoice.PaymentStatus}" : "No outstanding balance")
+                </span>
+            </div>
+            <button type="button" data-service="@(latestCompleted == null ? "null" : ServiceWidgetJson(latestCompleted))"
+               @@click="const item = JSON.parse($el.dataset.service); if (item) openServiceWidget(item)" @(latestCompleted == null ? "disabled" : null)
+               class="bg-white border border-solid border-[#e7eaf0] rounded-[16px] p-[20px] flex flex-col text-left hover:border-emerald-300 hover:shadow-sm transition-all group disabled:cursor-default">
+                <div class="flex items-center justify-between">
+                    <span class="font-['Inter'] font-[650] text-[12px] uppercase tracking-[0.5px] text-[#8a929e]">Completed services</span>
+                    <span class="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-100"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 4 4L19 6"/></svg></span>
+                </div>
+                <span class="font-['Inter'] font-bold text-[32px] text-emerald-600 mt-[8px]">@completedRequests.Count</span>
+                <span class="font-['Inter'] text-[13px] text-[#5d6470] mt-[8px]">View your service history →</span>
+            </button>
+        </div>
+    </div>
+
+    @if (latestCompleted != null)
+    {
+        var completedOn = latestCompleted.CompletedDate ?? latestCompleted.ScheduledDate;
+        <section class="relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-teal-50 shadow-sm">
+            <div class="absolute -right-12 -top-16 w-48 h-48 rounded-full bg-emerald-200/30 blur-2xl pointer-events-none"></div>
+            <div class="relative p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+                <div class="flex items-start gap-4 min-w-0">
+                    <div class="w-12 h-12 shrink-0 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-200">
+                        <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700">Service completed</span>
+                            <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Verified</span>
+                        </div>
+                        <h2 class="mt-1 font-['Inter'] text-lg sm:text-xl font-bold text-[#17191c] truncate">@latestCompleted.IssueDescription</h2>
+                        <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#5d6470]">
+                            <span class="font-['JetBrains_Mono']">JOB-@latestCompleted.ScheduledDate.Year-@latestCompleted.RequestID.ToString("D4")</span>
+                            <span>Completed @completedOn.ToString("MMM d, yyyy")</span>
+                            <span>@(latestCompleted.Technician == null ? "HomeServe IT technician" : $"{latestCompleted.Technician.FirstName} {latestCompleted.Technician.LastName}")</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 shrink-0">
+                    <div class="hidden sm:block text-right mr-2"><p class="text-[10px] uppercase tracking-wider text-[#8a929e] font-bold">Result</p><p class="text-sm font-semibold text-emerald-700">Resolved successfully</p></div>
+                    <button type="button" data-service="@ServiceWidgetJson(latestCompleted)" @@click="openServiceWidget(JSON.parse($el.dataset.service))" class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 shadow-sm transition-colors"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"check-circle"' />View completed service</button>
+                </div>
+            </div>
+        </section>
+    }
+
+    @if (activeReq != null)
+    {
+        <!-- Status Timeline -->
+        <div class="bg-white border border-solid border-[#e7eaf0] rounded-[16px] p-[20px] flex flex-col gap-[24px]">
+            <div class="flex items-center justify-between">
+                <h3 class="font-['Inter'] font-[650] text-[16px] text-[#17191c]">Request #@activeReq.RequestID — Status</h3>
+                <button type="button" data-service="@ServiceWidgetJson(activeReq)" @@click="openServiceWidget(JSON.parse($el.dataset.service))" class="inline-flex items-center gap-1.5 px-[12px] py-[6px] border border-solid border-[#e7eaf0] rounded-[8px] font-['Inter'] font-[550] text-[13px] text-[#17191c] hover:bg-gray-50"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"file-text"' />View detail</button>
+            </div>
+            
+            <div class="flex items-center justify-between relative mt-[12px] mb-[12px]">
+                <!-- Progress Line (Background) -->
+                <div class="absolute top-[14px] left-[28px] right-[28px] h-[2px] bg-[#e7eaf0] -z-10"></div>
+                <!-- Progress Line (Active) -->
+                <div class="absolute top-[14px] left-[28px] right-[20%] h-[2px] bg-[#0878f9] -z-10"></div>
+
+                <!-- Steps -->
+                <!-- 1. Request submitted -->
+                <div class="flex flex-col items-center gap-[8px] z-10 w-[120px]">
+                    <div class="w-[28px] h-[28px] rounded-full bg-[#0878f9] text-white flex items-center justify-center">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                    <span class="font-['Inter'] font-[600] text-[12px] text-[#17191c] text-center">Request submitted</span>
+                </div>
+                
+                <!-- 2. Under review -->
+                <div class="flex flex-col items-center gap-[8px] z-10 w-[120px]">
+                    <div class="w-[28px] h-[28px] rounded-full bg-[#0878f9] text-white flex items-center justify-center">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                    <span class="font-['Inter'] font-[600] text-[12px] text-[#17191c] text-center">Under review</span>
+                </div>
+
+                <!-- 3. Approved -->
+                <div class="flex flex-col items-center gap-[8px] z-10 w-[120px]">
+                    <div class="w-[28px] h-[28px] rounded-full bg-[#0878f9] text-white flex items-center justify-center">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                    <span class="font-['Inter'] font-[600] text-[12px] text-[#17191c] text-center">Approved</span>
+                </div>
+
+                <!-- 4. Scheduled -->
+                <div class="flex flex-col items-center gap-[8px] z-10 w-[120px]">
+                    <div class="w-[28px] h-[28px] rounded-full bg-[#0878f9] text-white flex items-center justify-center">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                    <span class="font-['Inter'] font-[600] text-[12px] text-[#17191c] text-center">Scheduled</span>
+                </div>
+
+                <!-- 5. In progress -->
+                <div class="flex flex-col items-center gap-[8px] z-10 w-[120px]">
+                    <div class="w-[28px] h-[28px] rounded-full bg-[#0878f9] text-white border-2 border-white flex items-center justify-center font-[650] text-[12px] ring-2 ring-[#0878f9]">
+                        5
+                    </div>
+                    <span class="font-['Inter'] font-[600] text-[12px] text-[#0878f9] text-center">In progress</span>
+                </div>
+
+                <!-- 6. Completed -->
+                <div class="flex flex-col items-center gap-[8px] z-10 w-[120px]">
+                    <div class="w-[28px] h-[28px] rounded-full bg-white border-2 border-[#e7eaf0] text-[#8a929e] flex items-center justify-center font-[650] text-[12px]">
+                        6
+                    </div>
+                    <span class="font-['Inter'] font-[500] text-[12px] text-[#8a929e] text-center">Completed</span>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Quotations & Bills -->
+    <div class="flex gap-[20px]">
+        <!-- Pending quotation -->
+        <div class="flex-1 bg-white border border-solid border-[#e7eaf0] rounded-[16px] p-[20px] flex flex-col items-center justify-center gap-[12px] text-center min-h-[160px]">
+            <div class="w-[40px] h-[40px] bg-gray-50 rounded-full flex items-center justify-center mb-[4px]">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8a929e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            </div>
+            <div>
+                <h3 class="font-['Inter'] font-[600] text-[15px] text-[#17191c]">No pending quotations</h3>
+                <p class="font-['Inter'] text-[13px] text-[#5d6470] mt-[4px]">When you request a service, quotes will appear here.</p>
+            </div>
+        </div>
+
+        <!-- Outstanding bill -->
+        @if (invoice != null)
+        {
+            <div class="flex-1 bg-white border border-solid border-[#e7eaf0] rounded-[16px] p-[20px] flex flex-col gap-[12px]">
+                <div class="flex items-center justify-between">
+                    <span class="font-['Inter'] font-[650] text-[12px] uppercase tracking-[0.5px] text-[#8a929e]">Outstanding bill</span>
+                    <span class="inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-full bg-red-50 text-red-700 font-['Inter'] font-[600] text-[11px]">
+                        <span class="w-[6px] h-[6px] rounded-full bg-red-500"></span> Unpaid
+                    </span>
+                </div>
+                <div>
+                    <h3 class="font-['Inter'] font-[650] text-[16px] text-[#17191c]">INV-@invoice.InvoiceID</h3>
+                    <p class="font-['Inter'] text-[14px] text-[#5d6470] mt-[2px]">Due @invoice.DateIssued.AddDays(7).ToString("MMM d, yyyy")</p>
+                </div>
+                <div class="flex items-center justify-between mt-[8px]">
+                    <span class="font-['Inter'] font-bold text-[24px] text-[#17191c]">₱@invoice.TotalAmount.ToString("N2")</span>
+                    <a asp-area="Customer" asp-controller="BillsAndPayments" asp-action="Index" class="px-[16px] py-[8px] bg-[#0878f9] text-white rounded-[8px] font-['Inter'] font-[550] text-[13px] hover:bg-blue-600">Pay now</a>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="flex-1 bg-white border border-solid border-[#e7eaf0] rounded-[16px] p-[20px] flex flex-col items-center justify-center gap-[12px] text-center min-h-[160px]">
+                <div class="w-[40px] h-[40px] bg-green-50 rounded-full flex items-center justify-center mb-[4px]">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#178a4b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                </div>
+                <div>
+                    <h3 class="font-['Inter'] font-[600] text-[15px] text-[#17191c]">No outstanding bills</h3>
+                    <p class="font-['Inter'] text-[13px] text-[#5d6470] mt-[4px]">You're all caught up with your payments.</p>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="flex gap-[20px]">
+        <!-- My Devices -->
+        <div class="flex-1 bg-white border border-solid border-[#e7eaf0] rounded-[16px] p-[20px] flex flex-col gap-[16px]">
+            <div class="flex items-center justify-between">
+                <h3 class="font-['Inter'] font-[650] text-[16px] text-[#17191c]">My devices</h3>
+                <a asp-area="Customer" asp-controller="MyDevices" asp-action="Index" class="px-[12px] py-[6px] border border-solid border-[#e7eaf0] rounded-[8px] font-['Inter'] font-[550] text-[13px] text-[#17191c] hover:bg-gray-50">Manage</a>
+            </div>
+            <div class="flex flex-col items-center justify-center text-center py-[24px]">
+                <div class="w-[48px] h-[48px] bg-gray-50 rounded-full flex items-center justify-center mb-[12px]">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8a929e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                </div>
+                <h4 class="font-['Inter'] font-[600] text-[14px] text-[#17191c] mb-[4px]">No devices added yet</h4>
+                <p class="font-['Inter'] text-[13px] text-[#5d6470] mb-[16px] max-w-[250px]">Add your computers, printers, or network equipment to request service faster.</p>
+                <a href="/Customer/MyDevices?open=add" class="px-[16px] py-[8px] border border-solid border-[#e7eaf0] rounded-[8px] font-['Inter'] font-[550] text-[13px] text-[#17191c] hover:bg-gray-50 flex items-center gap-[6px]">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Add a device
+                </a>
+            </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="w-[306px] bg-white border border-solid border-[#e7eaf0] rounded-[16px] p-[20px] flex flex-col gap-[16px]">
+            <h3 class="font-['Inter'] font-[650] text-[14px] text-[#17191c]">Quick actions</h3>
+            <div class="flex flex-col gap-[4px] mt-[4px]">
+                <a href="/Customer/ServiceRequests?open=create" class="flex items-center gap-[10px] px-[12px] py-[8px] hover:bg-gray-50 rounded-[10px] transition-colors w-full text-left">
+                    <span class="text-[#0878f9]"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"wrench"' /></span>
+                    <span class="font-['Inter'] font-[500] text-[13px] text-[#5d6470]">Request a service</span>
+                </a>
+                <a href="/Customer/MyDevices?open=add" class="flex items-center gap-[10px] px-[12px] py-[8px] hover:bg-gray-50 rounded-[10px] transition-colors w-full text-left">
+                    <span class="text-[#0878f9]"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"laptop"' /></span>
+                    <span class="font-['Inter'] font-[500] text-[13px] text-[#5d6470]">Add a device</span>
+                </a>
+                <button type="button" data-service="@(latestCompleted == null ? "null" : ServiceWidgetJson(latestCompleted))" @@click="const item = JSON.parse($el.dataset.service); if (item) openServiceWidget(item)" @(latestCompleted == null ? "disabled" : null) class="flex items-center gap-[10px] px-[12px] py-[8px] hover:bg-gray-50 rounded-[10px] transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span class="text-[#0878f9]"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"clipboard"' /></span>
+                    <span class="font-['Inter'] font-[500] text-[13px] text-[#5d6470]">View history</span>
+                </button>
+                <a asp-area="Customer" asp-controller="Support" asp-action="Index" class="flex items-center gap-[10px] px-[12px] py-[8px] hover:bg-gray-50 rounded-[10px] transition-colors w-full text-left">
+                    <span class="text-[#0878f9]"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"message-circle"' /></span>
+                    <span class="font-['Inter'] font-[500] text-[13px] text-[#5d6470]">Contact support</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="serviceWidgetOpen" style="display:none" class="fixed inset-0 z-[100] bg-slate-950/45 backdrop-blur-[3px]" @@click.self="serviceWidgetOpen = false" @@keydown.escape.window="serviceWidgetOpen = false" role="dialog" aria-modal="true" aria-labelledby="service-widget-title">
+        <aside x-show="serviceWidgetOpen"
+               x-transition:enter="transition ease-out duration-250" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+               x-transition:leave="transition ease-in duration-180" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+               class="customer-premium-drawer absolute bottom-0 right-0 top-0 flex w-full max-w-[560px] flex-col overflow-hidden">
+            <header class="customer-drawer-header flex items-start justify-between gap-4 px-5 py-5 sm:px-7 sm:py-6">
+                <div class="flex min-w-0 items-center gap-3.5">
+                    <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0878f9] to-indigo-600 text-white shadow-[0_10px_24px_rgba(8,120,249,0.28)]"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"wrench"' /></span>
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <p class="rounded-full bg-blue-50 px-2.5 py-1 font-['JetBrains_Mono'] text-[10px] font-bold text-[#0878f9]" x-text="serviceWidget?.code"></p>
+                            <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#8a929e]">Service details</span>
+                        </div>
+                        <h2 id="service-widget-title" class="mt-1.5 truncate text-[18px] font-bold tracking-[-0.02em] text-[#17191c]" x-text="serviceWidget?.title"></h2>
+                    </div>
+                </div>
+                <button type="button" @@click="serviceWidgetOpen = false" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100/80 text-[#697386] shadow-sm transition hover:bg-white hover:text-[#17191c] hover:shadow-md" aria-label="Close service details"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"x"' /></button>
+            </header>
+            <div class="customer-drawer-content flex-1 space-y-4 overflow-y-auto p-4 sm:px-7 sm:py-6">
+                <div class="premium-surface rounded-[22px] p-5 sm:p-6">
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700"><span class="h-2 w-2 rounded-full bg-blue-500"></span><span x-text="serviceWidget?.status"></span></span>
+                        <span class="rounded-full bg-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-[#697386]" x-text="serviceWidget?.priority + ' priority'"></span>
+                    </div>
+                    <p class="mt-5 text-[15px] font-semibold leading-6 text-[#2d3440]" x-text="serviceWidget?.description"></p>
+                    <div class="mt-5 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-gradient-to-r from-[#0878f9] to-indigo-500 transition-all duration-500" :style="{ width: serviceWidget?.status === 'Completed' ? '100%' : serviceWidget?.status === 'In Progress' ? '72%' : '32%' }"></div></div>
+                </div>
+                <dl class="premium-surface grid grid-cols-1 gap-2 rounded-[22px] p-2 sm:grid-cols-2">
+                    <div class="premium-muted-surface rounded-2xl p-4"><dt class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#8a929e]"><span class="text-[#0878f9]"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"calendar"' /></span>Schedule</dt><dd class="mt-2 text-sm font-semibold leading-5 text-[#17191c]" x-text="serviceWidget?.scheduled"></dd></div>
+                    <div class="premium-muted-surface rounded-2xl p-4"><dt class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#8a929e]"><span class="text-[#0878f9]"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"user"' /></span>Technician</dt><dd class="mt-2 text-sm font-semibold leading-5 text-[#17191c]" x-text="serviceWidget?.technician"></dd></div>
+                    <div class="premium-muted-surface rounded-2xl p-4"><dt class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#8a929e]"><span class="text-[#0878f9]"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"clipboard"' /></span>Category</dt><dd class="mt-2 text-sm font-semibold leading-5 text-[#17191c]" x-text="serviceWidget?.category"></dd></div>
+                    <div class="rounded-2xl bg-emerald-50/80 p-4" x-show="serviceWidget?.completed"><dt class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-emerald-700"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"check-circle"' />Completed</dt><dd class="mt-2 text-sm font-semibold leading-5 text-emerald-800" x-text="serviceWidget?.completed"></dd></div>
+                </dl>
+            </div>
+            <footer class="customer-drawer-footer flex items-center justify-between gap-3 p-4 sm:px-7 sm:py-5">
+                <button type="button" @@click="serviceWidgetOpen = false" class="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-[#475569] transition hover:bg-slate-200">Close</button>
+                <a :href="serviceWidget ? '/Customer/ServiceRequests?jobId=' + serviceWidget.id : '#'" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#0878f9] to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(8,120,249,0.25)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(8,120,249,0.3)]"><partial name="~/Views/Shared/_AppIcon.cshtml" model='"file-text"' />Open full workspace</a>
+            </footer>
+        </aside>
+    </div>
+</div>

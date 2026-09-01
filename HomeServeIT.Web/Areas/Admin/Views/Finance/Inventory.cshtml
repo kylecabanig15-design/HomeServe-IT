@@ -1,0 +1,519 @@
+@model IEnumerable<HomeServeIT.Web.Models.InventoryItem>
+@{
+    ViewData["Title"] = "Materials inventory";
+    var lowStockItems = Model.Where(i => i.StockQuantity <= i.ReorderLevel).ToList();
+}
+
+<div class="content-stretch flex flex-col items-start max-w-7xl p-[32px] relative shrink-0 w-full mx-auto" 
+     x-data="{ 
+        showAddModal: false, 
+        showRestockModal: false, 
+        showEditModal: false,
+        showDeleteModal: false,
+        showDetailModal: false,
+        
+        restockItemId: 0, 
+        restockItemName: '',
+        
+        deleteItemId: 0,
+        deleteItemName: '',
+        
+        activeItem: {},
+        editItem: {}
+     }">
+    
+    <!-- Header -->
+    <div class="flex items-start justify-between w-full">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <h1 class="font-['Inter'] font-[650] leading-[42px] relative shrink-0 text-[#17191c] text-[28px] whitespace-nowrap">
+                Materials inventory
+            </h1>
+            <p class="font-['Inter'] font-normal leading-[21px] mt-1 relative shrink-0 text-[#5d6470] text-[14px] whitespace-nowrap">
+                Track stock levels, costs, and reorder thresholds.
+            </p>
+        </div>
+        <div class="flex items-center gap-2">
+            <a asp-area="Admin" asp-controller="Finance" asp-action="StockMovements" class="bg-white border border-[#e7eaf0] hover:bg-gray-50 transition-colors text-[#17191c] font-['Inter'] font-semibold text-[14px] px-[16px] py-[10px] rounded-[8px] shadow-sm flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                Stock movements
+            </a>
+            <button @@click="showAddModal = true" class="bg-[#0878f9] hover:bg-blue-600 transition-colors text-white font-['Inter'] font-semibold text-[14px] px-[16px] py-[10px] rounded-[8px] shadow-sm flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Add item
+            </button>
+        </div>
+    </div>
+    
+    <!-- Low Stock Alert -->
+    @if (lowStockItems.Any())
+    {
+        <div class="w-full mt-8 bg-red-50 border border-red-100 rounded-[12px] p-4 flex items-center justify-between shadow-sm">
+            <div class="flex items-start gap-3">
+                <div class="bg-red-100 p-2 rounded-full mt-0.5">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                </div>
+                <div>
+                    <p class="font-['Inter'] font-semibold text-red-800 text-[14px]">Action Required: @lowStockItems.Count items below reorder level</p>
+                    <p class="font-['Inter'] text-red-600 text-[13px] mt-0.5 truncate max-w-[600px]">@string.Join(", ", lowStockItems.Select(i => i.ItemName))</p>
+                </div>
+            </div>
+            <button class="bg-white border border-red-200 hover:bg-red-50 transition-colors text-red-700 font-['Inter'] font-semibold text-[13px] px-[16px] py-[8px] rounded-[8px] shadow-sm">
+                Review & Reorder
+            </button>
+        </div>
+    }
+
+    <!-- Search & Filters -->
+    <div class="mt-6 w-full flex items-center justify-between">
+        <div class="w-[384px] bg-white border border-[#e7eaf0] flex h-[40px] items-center px-[12px] rounded-[8px] shadow-sm focus-within:ring-2 focus-within:ring-[#0878f9]/20 focus-within:border-[#0878f9] transition-all">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a929e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" placeholder="Search inventory by name or SKU..." class="bg-transparent border-none outline-none font-['Inter'] font-normal text-[#17191c] placeholder:text-[#8a929e] text-[14px] flex-1 min-w-0" />
+        </div>
+        <div class="flex items-center gap-2">
+            <button class="flex items-center gap-2 bg-white border border-[#e7eaf0] hover:bg-gray-50 transition-colors text-[#5d6470] font-['Inter'] font-medium text-[13px] px-[12px] py-[8px] rounded-[8px] shadow-sm">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                Filter
+            </button>
+            <button class="flex items-center gap-2 bg-white border border-[#e7eaf0] hover:bg-gray-50 transition-colors text-[#5d6470] font-['Inter'] font-medium text-[13px] px-[12px] py-[8px] rounded-[8px] shadow-sm">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export
+            </button>
+        </div>
+    </div>
+    
+    <!-- Data Table -->
+    <div class="w-full mt-6 bg-white border border-[#e7eaf0] rounded-[16px] shadow-[0_2px_12px_rgb(0,0,0,0.03)] overflow-hidden">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b border-[#e7eaf0] bg-[#f8fafc]">
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#5d6470] uppercase tracking-wider w-[280px]">Item Details</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#5d6470] uppercase tracking-wider w-[120px]">SKU</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#5d6470] uppercase tracking-wider">Category</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#5d6470] uppercase tracking-wider w-[100px]">QTY</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#5d6470] uppercase tracking-wider w-[120px]">Cost/Price</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#5d6470] uppercase tracking-wider">Status</th>
+                    <th class="py-4 px-6 font-['Inter'] font-[650] text-[11px] text-[#5d6470] uppercase tracking-wider text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="font-['Inter'] text-[13px] text-[#17191c] divide-y divide-[#e7eaf0]">
+                
+                @foreach (var item in Model)
+                {
+                    var isLowStock = item.StockQuantity <= item.ReorderLevel;
+                    var serializedItem = System.Text.Json.JsonSerializer.Serialize(item);
+
+                    <tr class="hover:bg-blue-50/30 transition-colors group">
+                        <td class="py-4 px-6 cursor-pointer" @@click="activeItem = @serializedItem; showDetailModal = true">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-[10px] bg-gray-100 border border-[#e7eaf0] flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                                    @if (!string.IsNullOrEmpty(item.ImageUrl))
+                                    {
+                                        <img src="@item.ImageUrl" alt="@item.ItemName" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                                    }
+                                    else
+                                    {
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8a929e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                    }
+                                </div>
+                                <div class="flex flex-col min-w-0">
+                                    <p class="font-semibold text-[#17191c] truncate group-hover:text-[#0878f9] transition-colors">@item.ItemName</p>
+                                    <p class="text-[#8a929e] text-[12px] truncate mt-0.5">Click to view details</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-4 px-6 font-['JetBrains_Mono'] text-[#5d6470] text-[12px]">@(string.IsNullOrEmpty(item.SKU) ? "—" : item.SKU)</td>
+                        <td class="py-4 px-6">
+                            @if (!string.IsNullOrEmpty(item.Category))
+                            {
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-[6px] text-[11px] font-medium bg-gray-100 text-[#5d6470] border border-gray-200">@item.Category</span>
+                            }
+                            else
+                            {
+                                <span class="text-[#8a929e]">—</span>
+                            }
+                        </td>
+                        <td class="py-4 px-6">
+                            <span class="font-bold @(isLowStock ? "text-red-600 bg-red-50 px-2 py-0.5 rounded-md" : "text-[#17191c]")">@item.StockQuantity</span>
+                            <span class="text-[#8a929e] text-[11px] ml-1">/ @item.ReorderLevel</span>
+                        </td>
+                        <td class="py-4 px-6">
+                            <p class="font-medium text-[#17191c]">@item.UnitPrice.ToString("C2", new System.Globalization.CultureInfo("en-PH"))</p>
+                            <p class="text-[#8a929e] text-[11px] mt-0.5">Cost: @item.UnitCost.ToString("C2", new System.Globalization.CultureInfo("en-PH"))</p>
+                        </td>
+                        <td class="py-4 px-6">
+                            @if (isLowStock)
+                            {
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium bg-red-50 text-red-700 border border-red-100">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> Low stock
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium bg-green-50 text-green-700 border border-green-100">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> In stock
+                                </span>
+                            }
+                        </td>
+                        <td class="py-4 px-6 text-right">
+                            <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button @@click="restockItemId = @item.ItemID; restockItemName = '@item.ItemName'; showRestockModal = true" class="p-2 text-[#0878f9] hover:bg-blue-50 rounded-lg transition-colors tooltip" title="Restock">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                                </button>
+                                <button @@click="editItem = @serializedItem; showEditModal = true" class="p-2 text-[#5d6470] hover:bg-gray-100 rounded-lg transition-colors tooltip" title="Edit">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                                </button>
+                                <button @@click="deleteItemId = @item.ItemID; deleteItemName = '@item.ItemName'; showDeleteModal = true" class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors tooltip" title="Delete">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                {
+                    <tr>
+                        <td colspan="7" class="py-16 text-center">
+                            <div class="flex flex-col items-center justify-center text-[#8a929e]">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-4 text-[#cfd4dc]"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                                <p class="font-['Inter'] font-medium text-[15px] text-[#17191c]">No inventory items found.</p>
+                                <p class="font-['Inter'] text-[13px] mt-1 mb-4">Get started by adding your first product or material.</p>
+                                <button @@click="showAddModal = true" class="bg-[#0878f9] text-white px-4 py-2 rounded-lg font-medium text-[13px] hover:bg-blue-600 transition-colors">Add Item</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Alpine.js Modals (Teleported to Body to avoid stacking issues) -->
+    <template x-teleport="body">
+        <div>
+            <!-- Add Item Modal -->
+            <div x-show="showAddModal" 
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" 
+                 style="display: none;">
+                 
+                <div @@click.outside="showAddModal = false" class="relative w-full max-w-2xl bg-white rounded-[20px] shadow-2xl flex flex-col p-8 my-8 transform transition-all"
+                     x-transition:enter="transition ease-out duration-300"
+                     x-transition:enter-start="opacity-0 translate-y-8 scale-95"
+                     x-transition:enter-end="opacity-100 translate-y-0 scale-100">
+                     
+                    <div class="flex items-center justify-between mb-8">
+                        <div>
+                            <h3 class="font-['Inter'] font-bold text-[#17191c] text-[22px]">Add New Item</h3>
+                            <p class="text-[#5d6470] text-[14px] mt-1">Register a new material or product to your inventory.</p>
+                        </div>
+                        <button @@click="showAddModal = false" class="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full text-[#5d6470] hover:bg-gray-200 hover:text-[#17191c] transition-colors">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                    </div>
+                    
+                    <form asp-area="Admin" asp-controller="Finance" asp-action="AddInventoryItem" method="post" class="flex flex-col gap-6">
+                        @Html.AntiForgeryToken()
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Left Column -->
+                            <div class="space-y-5">
+                                <div>
+                                    <label class="block font-['Inter'] font-semibold text-[#17191c] text-[13px] mb-2">Item Name <span class="text-red-500">*</span></label>
+                                    <input type="text" name="ItemName" placeholder="e.g. SSD 1TB Samsung" required class="w-full bg-[#f8fafc] border border-[#e7eaf0] rounded-[10px] h-[44px] px-[14px] font-['Inter'] text-[14px] text-[#17191c] outline-none focus:bg-white focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                                </div>
+                                
+                                <div class="flex gap-4">
+                                    <div class="flex-1">
+                                        <label class="block font-['Inter'] font-semibold text-[#17191c] text-[13px] mb-2">Category</label>
+                                        <input type="text" name="Category" placeholder="e.g. Storage" class="w-full bg-[#f8fafc] border border-[#e7eaf0] rounded-[10px] h-[44px] px-[14px] font-['Inter'] text-[14px] outline-none focus:bg-white focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                                    </div>
+                                    <div class="flex-1">
+                                        <label class="block font-['Inter'] font-semibold text-[#17191c] text-[13px] mb-2">SKU / Barcode</label>
+                                        <input type="text" name="SKU" placeholder="SKU-12345" class="w-full bg-[#f8fafc] border border-[#e7eaf0] rounded-[10px] h-[44px] px-[14px] font-['Inter'] text-[14px] outline-none focus:bg-white focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block font-['Inter'] font-semibold text-[#17191c] text-[13px] mb-2">Image URL</label>
+                                    <input type="url" name="ImageUrl" placeholder="https://example.com/image.jpg" class="w-full bg-[#f8fafc] border border-[#e7eaf0] rounded-[10px] h-[44px] px-[14px] font-['Inter'] text-[14px] outline-none focus:bg-white focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                                </div>
+                            </div>
+                            
+                            <!-- Right Column -->
+                            <div class="space-y-5 bg-gray-50/50 p-5 rounded-[12px] border border-[#e7eaf0]">
+                                <div>
+                                    <label class="block font-['Inter'] font-semibold text-[#17191c] text-[13px] mb-2">Initial Stock Quantity <span class="text-red-500">*</span></label>
+                                    <input type="number" name="StockQuantity" placeholder="0" required class="w-full bg-white border border-[#e7eaf0] rounded-[10px] h-[44px] px-[14px] font-['Inter'] text-[14px] outline-none focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                                </div>
+                                
+                                <div>
+                                    <label class="block font-['Inter'] font-semibold text-[#17191c] text-[13px] mb-2">Low Stock Alert (Reorder Level)</label>
+                                    <input type="number" name="ReorderLevel" placeholder="5" class="w-full bg-white border border-[#e7eaf0] rounded-[10px] h-[44px] px-[14px] font-['Inter'] text-[14px] outline-none focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                                </div>
+
+                                <div class="flex gap-4">
+                                    <div class="flex-1">
+                                        <label class="block font-['Inter'] font-semibold text-[#17191c] text-[13px] mb-2">Unit Cost (₱)</label>
+                                        <input type="number" step="0.01" name="UnitCost" placeholder="0.00" class="w-full bg-white border border-[#e7eaf0] rounded-[10px] h-[44px] px-[14px] font-['Inter'] text-[14px] outline-none focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                                    </div>
+                                    <div class="flex-1">
+                                        <label class="block font-['Inter'] font-semibold text-[#17191c] text-[13px] mb-2">Selling Price (₱) <span class="text-red-500">*</span></label>
+                                        <input type="number" step="0.01" name="UnitPrice" placeholder="0.00" required class="w-full bg-white border border-[#e7eaf0] rounded-[10px] h-[44px] px-[14px] font-['Inter'] text-[14px] outline-none focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-end gap-3 mt-4 pt-6 border-t border-[#e7eaf0]">
+                            <button type="button" @@click="showAddModal = false" class="px-5 py-2.5 bg-white border border-[#e7eaf0] hover:bg-gray-50 transition-colors text-[#17191c] font-['Inter'] font-semibold text-[14px] rounded-[10px] shadow-sm">
+                                Cancel
+                            </button>
+                            <button type="submit" class="px-6 py-2.5 bg-[#0878f9] hover:bg-blue-600 transition-colors text-white font-['Inter'] font-semibold text-[14px] rounded-[10px] shadow-[0_4px_12px_rgb(8,120,249,0.3)] flex items-center gap-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                Save Item
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Edit Item Modal -->
+            <div x-show="showEditModal" 
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" 
+                 style="display: none;">
+                 
+                <div @@click.outside="showEditModal = false" class="relative w-full max-w-2xl bg-white rounded-[20px] shadow-2xl flex flex-col p-8 my-8 transform transition-all">
+                     
+                    <div class="flex items-center justify-between mb-8">
+                        <div>
+                            <h3 class="font-['Inter'] font-bold text-[#17191c] text-[22px]">Edit Inventory Item</h3>
+                            <p class="text-[#5d6470] text-[14px] mt-1" x-text="'Updating details for ' + editItem.ItemName"></p>
+                        </div>
+                        <button @@click="showEditModal = false" class="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full text-[#5d6470] hover:bg-gray-200 hover:text-[#17191c] transition-colors">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                    </div>
+                    
+                    <form asp-area="Admin" asp-controller="Finance" asp-action="EditInventoryItem" method="post" class="flex flex-col gap-6">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="ItemID" x-model="editItem.ItemID" />
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Left Column -->
+                            <div class="space-y-5">
+                                <div>
+                                    <label class="block font-['Inter'] font-semibold text-[#17191c] text-[13px] mb-2">Item Name <span class="text-red-500">*</span></label>
+                                    <input type="text" name="ItemName" x-model="editItem.ItemName" required class="w-full bg-[#f8fafc] border border-[#e7eaf0] rounded-[10px] h-[44px] px-[14px] font-['Inter'] text-[14px] outline-none focus:bg-white focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                                </div>
+                                
+                                <div class="flex gap-4">
+                                    <div class="flex-1">
+                                        <label class="block font-['Inter'] font-semibold text-[#17191c] text-[13px] mb-2">Category</label>
+                                        <input type="text" name="Category" x-model="editItem.Category" class="w-full bg-[#f8fafc] border border-[#e7eaf0] rounded-[10px] h-[44px] px-[14px] font-['Inter'] text-[14px] outline-none focus:bg-white focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                                    </div>
+                                    <div class="flex-1">
+                                        <label class="block font-['Inter'] font-semibold text-[#17191c] text-[13px] mb-2">SKU / Barcode</label>
+                                        <input type="text" name="SKU" x-model="editItem.SKU" class="w-full bg-[#f8fafc] border border-[#e7eaf0] rounded-[10px] h-[44px] px-[14px] font-['Inter'] text-[14px] outline-none focus:bg-white focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block font-['Inter'] font-semibold text-[#17191c] text-[13px] mb-2">Image URL</label>
+                                    <input type="url" name="ImageUrl" x-model="editItem.ImageUrl" class="w-full bg-[#f8fafc] border border-[#e7eaf0] rounded-[10px] h-[44px] px-[14px] font-['Inter'] text-[14px] outline-none focus:bg-white focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                                </div>
+                            </div>
+                            
+                            <!-- Right Column -->
+                            <div class="space-y-5 bg-gray-50/50 p-5 rounded-[12px] border border-[#e7eaf0]">
+                                <div>
+                                    <label class="block font-['Inter'] font-semibold text-[#17191c] text-[13px] mb-2">Stock Quantity <span class="text-red-500">*</span></label>
+                                    <input type="number" name="StockQuantity" x-model="editItem.StockQuantity" required class="w-full bg-white border border-[#e7eaf0] rounded-[10px] h-[44px] px-[14px] font-['Inter'] text-[14px] outline-none focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                                </div>
+                                
+                                <div>
+                                    <label class="block font-['Inter'] font-semibold text-[#17191c] text-[13px] mb-2">Low Stock Alert (Reorder Level)</label>
+                                    <input type="number" name="ReorderLevel" x-model="editItem.ReorderLevel" class="w-full bg-white border border-[#e7eaf0] rounded-[10px] h-[44px] px-[14px] font-['Inter'] text-[14px] outline-none focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                                </div>
+
+                                <div class="flex gap-4">
+                                    <div class="flex-1">
+                                        <label class="block font-['Inter'] font-semibold text-[#17191c] text-[13px] mb-2">Unit Cost (₱)</label>
+                                        <input type="number" step="0.01" name="UnitCost" x-model="editItem.UnitCost" class="w-full bg-white border border-[#e7eaf0] rounded-[10px] h-[44px] px-[14px] font-['Inter'] text-[14px] outline-none focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                                    </div>
+                                    <div class="flex-1">
+                                        <label class="block font-['Inter'] font-semibold text-[#17191c] text-[13px] mb-2">Selling Price (₱) <span class="text-red-500">*</span></label>
+                                        <input type="number" step="0.01" name="UnitPrice" x-model="editItem.UnitPrice" required class="w-full bg-white border border-[#e7eaf0] rounded-[10px] h-[44px] px-[14px] font-['Inter'] text-[14px] outline-none focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-end gap-3 mt-4 pt-6 border-t border-[#e7eaf0]">
+                            <button type="button" @@click="showEditModal = false" class="px-5 py-2.5 bg-white border border-[#e7eaf0] hover:bg-gray-50 transition-colors text-[#17191c] font-['Inter'] font-semibold text-[14px] rounded-[10px] shadow-sm">
+                                Cancel
+                            </button>
+                            <button type="submit" class="px-6 py-2.5 bg-[#17191c] hover:bg-black transition-colors text-white font-['Inter'] font-semibold text-[14px] rounded-[10px] shadow-md flex items-center gap-2">
+                                Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Restock Modal -->
+            <div x-show="showRestockModal" 
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95"
+                 class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" 
+                 style="display: none;">
+                 
+                <div @@click.outside="showRestockModal = false" class="relative w-full max-w-sm bg-white rounded-[20px] shadow-2xl flex flex-col p-6 text-center items-center">
+                    <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mb-4 text-[#0878f9]">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    </div>
+                    <h3 class="font-['Inter'] font-bold text-[#17191c] text-[18px]">Restock Inventory</h3>
+                    <p class="font-['Inter'] text-[14px] text-[#5d6470] mt-2 mb-6">How many units of <span class="font-bold text-[#17191c]" x-text="restockItemName"></span> did you receive?</p>
+                    
+                    <form asp-area="Admin" asp-controller="Finance" asp-action="RestockInventory" method="post" class="w-full flex flex-col gap-4">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="itemId" x-model="restockItemId" />
+                        
+                        <div class="relative w-full">
+                            <input type="number" name="quantity" value="10" required min="1" class="w-full bg-[#f8fafc] border border-[#e7eaf0] rounded-[10px] h-[48px] px-[16px] text-center font-['Inter'] font-bold text-[18px] text-[#17191c] outline-none focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] transition-all" />
+                        </div>
+                        
+                        <div class="flex gap-3 w-full mt-2">
+                            <button type="button" @@click="showRestockModal = false" class="flex-1 bg-white border border-[#e7eaf0] hover:bg-gray-50 transition-colors text-[#17191c] font-['Inter'] font-semibold text-[14px] h-[44px] rounded-[10px]">
+                                Cancel
+                            </button>
+                            <button type="submit" class="flex-1 bg-[#0878f9] hover:bg-blue-600 transition-colors text-white font-['Inter'] font-semibold text-[14px] h-[44px] rounded-[10px] shadow-md">
+                                Confirm Restock
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Delete Confirmation Modal -->
+            <div x-show="showDeleteModal" 
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95"
+                 class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" 
+                 style="display: none;">
+                 
+                <div @@click.outside="showDeleteModal = false" class="relative w-full max-w-sm bg-white rounded-[20px] shadow-2xl flex flex-col p-6 text-center items-center">
+                    <div class="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mb-4 text-red-500">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <h3 class="font-['Inter'] font-bold text-[#17191c] text-[18px]">Delete Item</h3>
+                    <p class="font-['Inter'] text-[14px] text-[#5d6470] mt-2 mb-6">Are you sure you want to delete <span class="font-bold text-[#17191c]" x-text="deleteItemName"></span>? This action cannot be undone.</p>
+                    
+                    <form asp-area="Admin" asp-controller="Finance" asp-action="DeleteInventoryItem" method="post" class="w-full flex gap-3">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="itemId" x-model="deleteItemId" />
+                        <button type="button" @@click="showDeleteModal = false" class="flex-1 bg-white border border-[#e7eaf0] hover:bg-gray-50 transition-colors text-[#17191c] font-['Inter'] font-semibold text-[14px] h-[44px] rounded-[10px]">
+                            Cancel
+                        </button>
+                        <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 transition-colors text-white font-['Inter'] font-semibold text-[14px] h-[44px] rounded-[10px] shadow-md">
+                            Delete Item
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Item Detail Modal (Read-Only Glassmorphism Presentation) -->
+            <div x-show="showDetailModal" 
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="fixed inset-0 z-[100] flex items-center justify-center bg-[#17191c]/70 backdrop-blur-md p-4" 
+                 style="display: none;">
+                 
+                <div @@click.outside="showDetailModal = false" class="relative w-full max-w-lg bg-white/95 backdrop-blur-xl border border-white/20 rounded-[24px] shadow-[0_20px_40px_rgb(0,0,0,0.2)] flex flex-col overflow-hidden"
+                     x-transition:enter="transition ease-out duration-300"
+                     x-transition:enter-start="opacity-0 scale-95 translate-y-4"
+                     x-transition:enter-end="opacity-100 scale-100 translate-y-0">
+                     
+                    <!-- Image Banner Header -->
+                    <div class="h-[200px] w-full bg-gray-100 relative">
+                        <template x-if="activeItem.ImageUrl">
+                            <img :src="activeItem.ImageUrl" class="w-full h-full object-cover" />
+                        </template>
+                        <template x-if="!activeItem.ImageUrl">
+                            <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#0878f9]/10 to-[#0878f9]/5">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#0878f9" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="opacity-40"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            </div>
+                        </template>
+                        
+                        <!-- Close Button -->
+                        <button @@click="showDetailModal = false" class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-black/30 hover:bg-black/50 backdrop-blur-md rounded-full text-white transition-colors shadow-sm">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="p-8">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide uppercase bg-blue-50 text-blue-700" x-text="activeItem.Category || 'UNCATEGORIZED'"></span>
+                            <span class="font-['JetBrains_Mono'] text-[12px] text-[#8a929e]" x-text="activeItem.SKU ? 'SKU: ' + activeItem.SKU : ''"></span>
+                        </div>
+                        
+                        <h3 class="font-['Inter'] font-bold text-[#17191c] text-[24px] leading-tight mb-6" x-text="activeItem.ItemName"></h3>
+                        
+                        <div class="grid grid-cols-2 gap-y-6 gap-x-4">
+                            <div>
+                                <p class="text-[12px] text-[#8a929e] font-semibold uppercase tracking-wider mb-1">Current Stock</p>
+                                <p class="font-['Inter'] font-bold text-[20px] text-[#17191c]" :class="activeItem.StockQuantity <= activeItem.ReorderLevel ? 'text-red-600' : 'text-[#17191c]'" x-text="activeItem.StockQuantity + ' pcs'"></p>
+                            </div>
+                            <div>
+                                <p class="text-[12px] text-[#8a929e] font-semibold uppercase tracking-wider mb-1">Reorder Level</p>
+                                <p class="font-['Inter'] font-bold text-[20px] text-[#17191c]" x-text="activeItem.ReorderLevel + ' pcs'"></p>
+                            </div>
+                            
+                            <div class="col-span-2 w-full h-px bg-[#e7eaf0]"></div>
+                            
+                            <div>
+                                <p class="text-[12px] text-[#8a929e] font-semibold uppercase tracking-wider mb-1">Unit Cost</p>
+                                <p class="font-['Inter'] font-medium text-[16px] text-[#5d6470]" x-text="'₱' + (activeItem.UnitCost || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})"></p>
+                            </div>
+                            <div>
+                                <p class="text-[12px] text-[#8a929e] font-semibold uppercase tracking-wider mb-1">Selling Price</p>
+                                <p class="font-['Inter'] font-bold text-[18px] text-[#0878f9]" x-text="'₱' + (activeItem.UnitPrice || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})"></p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-3 w-full mt-8">
+                            <button @@click="showDetailModal = false; editItem = JSON.parse(JSON.stringify(activeItem)); showEditModal = true" class="flex-1 bg-white border border-[#e7eaf0] hover:bg-gray-50 transition-colors text-[#17191c] font-['Inter'] font-semibold text-[14px] h-[44px] rounded-[10px] flex items-center justify-center gap-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                                Edit Details
+                            </button>
+                            <button @@click="showDetailModal = false; restockItemId = activeItem.ItemID; restockItemName = activeItem.ItemName; showRestockModal = true" class="flex-1 bg-[#0878f9] hover:bg-blue-600 transition-colors text-white font-['Inter'] font-semibold text-[14px] h-[44px] rounded-[10px] shadow-md flex items-center justify-center gap-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                Restock Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+</div>

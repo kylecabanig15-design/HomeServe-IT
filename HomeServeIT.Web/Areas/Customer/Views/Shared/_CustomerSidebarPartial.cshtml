@@ -1,0 +1,111 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@model HomeServeIT.Web.Models.NotificationFeedViewModel
+@{
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+
+    string GetItemClass(string controller, string action)
+    {
+        var isActive = currentController == controller && (string.IsNullOrEmpty(action) || currentAction == action);
+        return isActive 
+            ? "bg-[#edf5ff] content-stretch flex gap-[12px] items-center px-[12px] py-[8px] relative rounded-[10px] shrink-0 w-full" 
+            : "content-stretch flex gap-[12px] items-center px-[12px] py-[8px] relative rounded-[10px] shrink-0 w-full hover:bg-gray-50 transition-colors";
+    }
+
+    string GetTextClass(string controller, string action)
+    {
+        var isActive = currentController == controller && (string.IsNullOrEmpty(action) || currentAction == action);
+        return isActive
+            ? "font-['Inter'] font-[550] leading-[19.5px] relative shrink-0 text-[#0878f9] text-[13px] whitespace-nowrap"
+            : "font-['Inter'] font-[550] leading-[19.5px] relative shrink-0 text-[#5d6470] text-[13px] whitespace-nowrap group-hover:text-[#17191c] transition-colors";
+    }
+
+    string GetIconColor(string controller, string action)
+    {
+        var isActive = currentController == controller && (string.IsNullOrEmpty(action) || currentAction == action);
+        return isActive ? "#0878f9" : "#8a929e";
+    }
+}
+
+<!-- Navigation -->
+<div class="content-stretch flex flex-col gap-[2px] items-start relative shrink-0 w-full mt-2">
+    
+    <a asp-area="Customer" asp-controller="Dashboard" asp-action="Index" class="@GetItemClass("Dashboard", "Index") group">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="@GetIconColor("Dashboard", "Index")" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative shrink-0 group-hover:stroke-[#17191c] transition-colors"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        </div>
+        <div class="content-stretch flex flex-[1_0_0] flex-col items-start min-w-px overflow-clip relative">
+            <p class="@GetTextClass("Dashboard", "Index")">Overview</p>
+        </div>
+    </a>
+    
+    <a asp-area="Customer" asp-controller="ServiceRequests" asp-action="Index" class="@GetItemClass("ServiceRequests", "Index") group">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="@GetIconColor("ServiceRequests", "Index")" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative shrink-0 group-hover:stroke-[#17191c] transition-colors"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </div>
+        <div class="content-stretch flex flex-[1_0_0] flex-col items-start min-w-px overflow-clip relative">
+            <p class="@GetTextClass("ServiceRequests", "Index")">Service requests</p>
+        </div>
+    </a>
+
+    <a asp-area="Customer" asp-controller="MyDevices" asp-action="Index" class="@GetItemClass("MyDevices", "Index") group">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="@GetIconColor("MyDevices", "Index")" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative shrink-0 group-hover:stroke-[#17191c] transition-colors"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </div>
+        <div class="content-stretch flex flex-[1_0_0] flex-col items-start min-w-px overflow-clip relative">
+            <p class="@GetTextClass("MyDevices", "Index")">My devices</p>
+        </div>
+    </a>
+
+    <a asp-area="Customer" asp-controller="Quotations" asp-action="Index" class="@GetItemClass("Quotations", "Index") group">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="@GetIconColor("Quotations", "Index")" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative shrink-0 group-hover:stroke-[#17191c] transition-colors"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
+        <div class="content-stretch flex flex-[1_0_0] flex-col items-start min-w-px overflow-clip relative">
+            <p class="@GetTextClass("Quotations", "Index")">Quotations</p>
+        </div>
+    </a>
+
+    <a asp-area="Customer" asp-controller="BillsAndPayments" asp-action="Index" class="@GetItemClass("BillsAndPayments", "Index") group">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="@GetIconColor("BillsAndPayments", "Index")" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative shrink-0 group-hover:stroke-[#17191c] transition-colors"><rect x="2" y="5" width="20" height="14" rx="2" ry="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        </div>
+        <div class="content-stretch flex flex-[1_0_0] flex-col items-start min-w-px overflow-clip relative">
+            <p class="@GetTextClass("BillsAndPayments", "Index")">Bills and payments</p>
+        </div>
+    </a>
+
+    <a asp-area="Customer" asp-controller="Notifications" asp-action="Index" class="@GetItemClass("Notifications", "Index") group">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="@GetIconColor("Notifications", "Index")" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative shrink-0 group-hover:stroke-[#17191c] transition-colors"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+        </div>
+        <div class="content-stretch flex flex-[1_0_0] flex-col items-start min-w-px overflow-clip relative">
+            <p class="@GetTextClass("Notifications", "Index")">Notifications</p>
+        </div>
+        @if (Model.UnreadCount > 0)
+        {
+            <div class="bg-[#0878f9] content-stretch flex items-center justify-center min-w-[18px] px-[4px] relative rounded-full shrink-0 h-[18px]">
+                <p class="font-['Inter'] font-[650] leading-[10px] relative shrink-0 text-[10px] text-center text-white whitespace-nowrap">@(Model.UnreadCount > 99 ? "99+" : Model.UnreadCount)</p>
+            </div>
+        }
+    </a>
+
+    <a asp-area="Customer" asp-controller="Support" asp-action="Index" class="@GetItemClass("Support", "Index") group">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="@GetIconColor("Support", "Index")" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative shrink-0 group-hover:stroke-[#17191c] transition-colors"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 9h8"/><path d="M8 13h5"/></svg>
+        </div>
+        <div class="content-stretch flex flex-[1_0_0] flex-col items-start min-w-px overflow-clip relative">
+            <p class="@GetTextClass("Support", "Index")">Customer support</p>
+        </div>
+    </a>
+
+    <a asp-area="Customer" asp-controller="ProfileAndSettings" asp-action="Index" class="@GetItemClass("ProfileAndSettings", "Index") group">
+        <div class="content-stretch flex flex-col items-start relative shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="@GetIconColor("ProfileAndSettings", "Index")" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative shrink-0 group-hover:stroke-[#17191c] transition-colors"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div class="content-stretch flex flex-[1_0_0] flex-col items-start min-w-px overflow-clip relative">
+            <p class="@GetTextClass("ProfileAndSettings", "Index")">Profile and settings</p>
+        </div>
+    </a>
+
+</div>
