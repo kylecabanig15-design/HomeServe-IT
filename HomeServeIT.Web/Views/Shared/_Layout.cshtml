@@ -1,9 +1,13 @@
+@inject HomeServeIT.Web.Services.ApplicationSettingsService ApplicationSettingsService
+@{
+    var shellSettings = await ApplicationSettingsService.GetAsync();
+}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - HomeServe IT</title>
+    <title>@ViewData["Title"] - @shellSettings.SystemName</title>
     
     <!-- Tailwind CSS (compiled) -->
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
@@ -13,6 +17,8 @@
     <script defer src="https://cdn.jsdelivr.net/npm/@@alpinejs/intersect@3.x.x/dist/cdn.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script defer src="~/js/site.js" asp-append-version="true"></script>
+    <script defer src="~/js/app-shell.js" asp-append-version="true"></script>
+    <link rel="stylesheet" href="~/css/app-shell.css" asp-append-version="true" />
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -39,7 +45,8 @@
     </div>
     
     <!-- Navigation -->
-    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-[22px] border-b border-[#e7eaf0]">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="public-header sticky top-0 z-50 bg-white/90 backdrop-blur-[22px] border-b border-[#e7eaf0]">
         <div class="max-w-[1152px] mx-auto px-[32px] h-[64px] flex items-center">
             
             <!-- Logo -->
@@ -47,15 +54,14 @@
                 <div class="bg-primary text-white w-7 h-7 rounded-lg flex items-center justify-center shadow-sm group-hover:bg-primary-hover transition-colors overflow-hidden">
                     <img src="~/img/logo.svg" alt="Logo" class="w-full h-full object-contain" />
                 </div>
-                <span class="font-bold text-[15px] tracking-tight text-dark">HomeServe IT</span>
+                <span class="font-bold text-[15px] tracking-tight text-dark">@shellSettings.SystemName</span>
             </a>
 
             <!-- Nav Links -->
             <nav class="hidden md:flex items-center gap-8 ml-[32px] flex-1">
                 <a href="/#services" class="text-[14px] font-semibold text-dark hover:text-primary transition-colors">Services</a>
                 <a href="/#how-it-works" class="text-[14px] font-semibold text-dark hover:text-primary transition-colors">How it works</a>
-                <a href="/#pricing" class="text-[14px] font-semibold text-dark hover:text-primary transition-colors">Pricing</a>
-                <a href="/#testimonials" class="text-[14px] font-semibold text-dark hover:text-primary transition-colors">Testimonials</a>
+                <a href="/Home/Privacy" class="text-[14px] font-semibold text-dark hover:text-primary transition-colors">Data use</a>
             </nav>
 
             <!-- Auth Actions -->
@@ -71,21 +77,21 @@
     </header>
     
     <!-- Main Content -->
-    <main class="flex-grow">
+    <main id="main-content" tabindex="-1" class="flex-grow">
         @RenderBody()
     </main>
 
     <!-- Footer -->
-    <footer class="border-t border-[#e7eaf0] bg-white mt-auto">
+    <footer class="public-footer border-t border-[#e7eaf0] bg-white mt-auto">
         <div class="max-w-[1152px] mx-auto px-[32px] h-[80px] flex justify-between items-center w-full">
             <div class="flex items-center gap-2 font-bold text-dark">
                 <div class="bg-primary w-5 h-5 rounded-md flex items-center justify-center overflow-hidden">
                     <img src="~/img/logo.svg" alt="Logo" class="w-full h-full object-contain" />
                 </div>
-                <span class="text-[15px] font-bold">HomeServe IT</span>
+                <span class="text-[15px] font-bold">@shellSettings.SystemName</span>
             </div>
             <p class="text-[13px] text-[#8a929e] font-normal m-0 p-0">
-                &copy; 2026 HomeServe IT. Davao City, Philippines.
+                &copy; 2026 @shellSettings.CompanyName. @shellSettings.CompanyAddress.
             </p>
         </div>
     </footer>
@@ -94,6 +100,7 @@
     
     <!-- Alpine.js Intersect Plugin for scroll animations is now in head -->
     
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
     <partial name="~/Views/Shared/_ToastPartial.cshtml" />
 </body>

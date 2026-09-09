@@ -26,8 +26,6 @@ public class NotificationService
         if (role == null)
             return new NotificationFeedViewModel();
 
-        await SynchronizeAsync(user, role);
-
         var baseQuery = _context.UserNotifications
             .AsNoTracking()
             .Where(n => n.RecipientUserID == user.Id && n.AudienceRole == role);
@@ -132,6 +130,21 @@ public class NotificationService
         if (roles.Contains(Roles.Technician)) return Roles.Technician;
         if (roles.Contains(Roles.Customer)) return Roles.Customer;
         return null;
+    }
+
+    public async Task SynchronizeUserAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken);
+        // Serialize workers across app instances on the recipient row before reading candidates.
+        var users = _context.Database.IsMySql()
+            ? await _context.Users.FromSqlInterpolated($"SELECT * FROM AspNetUsers WHERE Id = {userId} FOR UPDATE").ToListAsync(cancellationToken)
+            : await _context.Users.Where(u => u.Id == userId).ToListAsync(cancellationToken);
+        var user = users.SingleOrDefault();
+        if (user == null || user.IsArchived) return;
+        var role = await ResolveRoleAsync(user);
+        if (role == null) return;
+        await SynchronizeAsync(user, role);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     private async Task SynchronizeAsync(ApplicationUser user, string role)
@@ -256,7 +269,7 @@ public class NotificationService
 
         var lowStockItems = await _context.InventoryItems
             .AsNoTracking()
-            .Where(item => item.StockQuantity <= item.ReorderLevel)
+            .Where(item => !item.IsArchived && item.StockQuantity <= item.ReorderLevel)
             .OrderBy(item => item.StockQuantity)
             .ToListAsync();
         notifications.AddRange(lowStockItems.Select(item => New(
@@ -314,7 +327,7 @@ public class NotificationService
                         "Scheduled" => "Service appointment confirmed",
                         "In Progress" => "Your service is in progress",
                         "Diagnosing" => "Your device is being diagnosed",
-                        "PendingCustomerReview" => "Service work is ready for your review",
+                        "PendingCustomerReview" => "Service work is ready for your approval",
                         "Completed" => "Service request completed",
                         "Cancelled" => "Service request cancelled",
                         _ => $"Service request updated to {request.Status}"
@@ -413,7 +426,7 @@ public class NotificationService
                 "Scheduled" => "Job schedule confirmed",
                 "In Progress" => "Job is marked in progress",
                 "Diagnosing" => "Diagnosis stage recorded",
-                "PendingCustomerReview" => "Customer review is pending",
+                "PendingCustomerReview" => "Awaiting customer approval",
                 "Completed" => "Job marked completed",
                 "Cancelled" => "Assigned job cancelled",
                 _ => $"Assigned job updated to {request.Status}"

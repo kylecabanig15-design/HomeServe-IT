@@ -1,0 +1,7 @@
+interface:
+  display_name: "Full App Audit"
+  short_description: "Audit an application end to end"
+  default_prompt: "Use $full-app-audit to perform an evidence-backed audit of this application."
+
+policy:
+  allow_implicit_invocation: true

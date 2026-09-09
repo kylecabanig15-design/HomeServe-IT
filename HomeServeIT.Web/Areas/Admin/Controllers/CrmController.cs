@@ -32,7 +32,7 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> AddCustomer([FromServices] UserManager<ApplicationUser> userManager, string firstName, string lastName, string email, string phone, string address)
+        public async Task<IActionResult> AddCustomer([FromServices] UserManager<ApplicationUser> userManager, string firstName, string lastName, string email, string phone, string address, [FromServices] HomeServeIT.Web.Services.AccountProfileService profiles)
         {
             if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
             {
@@ -40,22 +40,11 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
                 return RedirectToAction(nameof(Customers));
             }
 
-            var user = new ApplicationUser { UserName = email, Email = email, EmailConfirmed = true, PhoneNumber = phone };
-            var result = await userManager.CreateAsync(user, "TempPass123!");
+            var user = new ApplicationUser { UserName = email.Trim(), Email = email.Trim(), FullName = $"{firstName} {lastName}", PhoneNumber = phone, StreetAddress = address };
+            var result = await profiles.CreateAsync(user, Roles.Customer);
             if (result.Succeeded)
             {
-                await userManager.AddToRoleAsync(user, Roles.Customer);
-                var customer = new HomeServeIT.Web.Models.Customer
-                {
-                    UserID = user.Id,
-                    FirstName = firstName,
-                    LastName = lastName,
-                    PhoneNumber = phone,
-                    HomeAddress = address
-                };
-                _context.Customers.Add(customer);
-                await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = $"Customer {firstName} {lastName} added successfully.";
+                return await HomeServeIT.Web.Services.InvitationResult.ShowAsync(this, userManager, user);
             }
             else
             {
@@ -102,32 +91,18 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditCustomer(int customerId, string firstName, string lastName, string phone, string address)
+        public async Task<IActionResult> EditCustomer([FromServices] HomeServeIT.Web.Services.AccountProfileService profiles, int customerId, string firstName, string lastName, string phone, string address)
         {
-            var customer = await _context.Customers
-                .Include(c => c.User)
-                .FirstOrDefaultAsync(c => c.CustomerID == customerId);
-
-            if (customer == null)
-            {
-                TempData["ErrorMessage"] = "Customer not found.";
-                return RedirectToAction(nameof(Customers));
-            }
-
-            customer.FirstName = firstName.Trim();
-            customer.LastName = lastName.Trim();
-            customer.PhoneNumber = phone.Length > 16 ? phone[..16] : phone;
-            customer.HomeAddress = address.Trim();
-
-            if (customer.User != null)
-            {
-                customer.User.FullName = $"{customer.FirstName} {customer.LastName}".Trim();
-                customer.User.PhoneNumber = phone;
-                customer.User.StreetAddress = address;
-            }
-
-            await _context.SaveChangesAsync();
-            TempData["SuccessMessage"] = $"Customer {customer.FirstName} {customer.LastName} updated successfully.";
+            var customer = await _context.Customers.Include(c => c.User).FirstOrDefaultAsync(c => c.CustomerID == customerId);
+            if (customer?.User == null) return NotFound();
+            var model = ProfileViewModel.FromUser(customer.User);
+            model.FullName = $"{firstName} {lastName}";
+            model.Mobile = phone;
+            model.Address = address;
+            model.City = null; // The CRM address input contains the complete address.
+            var result = await profiles.UpdateAsync(customer.User, model);
+            TempData[result.Succeeded ? "SuccessMessage" : "ErrorMessage"] = result.Succeeded
+                ? "Customer updated successfully." : string.Join(" ", result.Errors.Select(e => e.Description));
             return RedirectToAction(nameof(CustomerDetail), new { id = customerId });
         }
 
@@ -182,8 +157,8 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
             var jobsGrowth = completedJobsPrev30 == 0 ? (completedJobsLast30 > 0 ? 100 : 0) : (double)(completedJobsLast30 - completedJobsPrev30) / completedJobsPrev30 * 100;
 
             // Average resolution time
-            var avgResLast30 = jobsLast30.Any() ? jobsLast30.Average(r => (r.CompletedDate!.Value - r.ScheduledDate).TotalDays) : 0;
-            var avgResPrev30 = jobsPrev30.Any() ? jobsPrev30.Average(r => (r.CompletedDate!.Value - r.ScheduledDate).TotalDays) : 0;
+            var avgResLast30 = HomeServeIT.Web.Services.CompletionTiming.AverageDays(jobsLast30);
+            var avgResPrev30 = HomeServeIT.Web.Services.CompletionTiming.AverageDays(jobsPrev30);
             var resTimeChange = avgResLast30 - avgResPrev30;
 
             // Jobs by category (Last 30 days)
@@ -277,10 +252,10 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
             var revGrowth = revPrev == 0 ? (revCurrent > 0 ? "+100%" : "0.0%") : $"{(revCurrent - revPrev) / revPrev:P1}";
 
             var jobsCurrent = await _context.ServiceRequests
-                .CountAsync(r => r.Status == "Completed" && ((r.CompletedDate.HasValue && r.CompletedDate.Value >= currentStart && r.CompletedDate.Value <= currentEnd) || (r.ScheduledDate >= currentStart && r.ScheduledDate <= currentEnd)));
+                .CountAsync(r => r.Status == "Completed" && (r.CompletedDate.HasValue && r.CompletedDate.Value >= currentStart && r.CompletedDate.Value <= currentEnd));
 
             var jobsPrev = await _context.ServiceRequests
-                .CountAsync(r => r.Status == "Completed" && ((r.CompletedDate.HasValue && r.CompletedDate.Value >= previousStart && r.CompletedDate.Value < previousEnd) || (r.ScheduledDate >= previousStart && r.ScheduledDate < previousEnd)));
+                .CountAsync(r => r.Status == "Completed" && (r.CompletedDate.HasValue && r.CompletedDate.Value >= previousStart && r.CompletedDate.Value < previousEnd));
 
             var jobsGrowth = jobsPrev == 0 ? (jobsCurrent > 0 ? "+100%" : "0.0%") : $"{(jobsCurrent - jobsPrev) / (double)jobsPrev:P1}";
 
@@ -292,8 +267,8 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
                 .Where(r => r.Status == "Completed" && r.CompletedDate.HasValue && r.CompletedDate.Value >= previousStart && r.CompletedDate.Value < previousEnd)
                 .ToListAsync();
 
-            var avgResolutionDays = completedRequests.Any() ? completedRequests.Average(r => Math.Max(0.1, (r.CompletedDate!.Value - r.ScheduledDate).TotalDays)) : 0;
-            var prevAvgResolutionDays = prevCompletedRequests.Any() ? prevCompletedRequests.Average(r => Math.Max(0.1, (r.CompletedDate!.Value - r.ScheduledDate).TotalDays)) : 0;
+            var avgResolutionDays = HomeServeIT.Web.Services.CompletionTiming.AverageDays(completedRequests);
+            var prevAvgResolutionDays = HomeServeIT.Web.Services.CompletionTiming.AverageDays(prevCompletedRequests);
 
             var resTrend = avgResolutionDays > 0 && prevAvgResolutionDays > 0 ? $"{(avgResolutionDays - prevAvgResolutionDays):+0.0;-0.0;0.0} Days" : "—";
 
@@ -377,7 +352,7 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
                     table.Cell().Element(CellStyle).Text(jobsPrev.ToString());
                     table.Cell().Element(CellStyle).Text(jobsGrowth);
 
-                    table.Cell().Element(CellStyle).Text("Avg Resolution");
+                    table.Cell().Element(CellStyle).Text("Avg scheduled-to-completion days (valid dates)");
                     table.Cell().Element(CellStyle).Text(avgRes > 0 ? $"{avgRes:0.0} Days" : "—");
                     table.Cell().Element(CellStyle).Text(prevAvgRes > 0 ? $"{prevAvgRes:0.0} Days" : "—");
                     table.Cell().Element(CellStyle).Text(resTrend);

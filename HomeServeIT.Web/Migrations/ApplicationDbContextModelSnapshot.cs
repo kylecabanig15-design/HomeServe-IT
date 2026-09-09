@@ -22,6 +22,96 @@ namespace HomeServeIT.Web.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
+            modelBuilder.Entity("HomeServeIT.Web.Models.ApplicationSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AllowPublicRegistration")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("CompanyAddress")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("varchar(250)");
+
+                    b.Property<string>("CompanyName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<bool>("NotificationRefreshEnabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("NotificationRefreshIntervalSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SupportEmail")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("varchar(254)");
+
+                    b.Property<string>("SystemName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.ToTable("ApplicationSettings");
+                });
+
+            modelBuilder.Entity("HomeServeIT.Web.Models.ApplicationSettingAudit", b =>
+                {
+                    b.Property<long>("AuditId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("AuditId"));
+
+                    b.Property<string>("ActorUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<DateTime>("ChangedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ChangedFields")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Section")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.HasKey("AuditId");
+
+                    b.HasIndex("ActorUserId");
+
+                    b.ToTable("ApplicationSettingAudits");
+                });
+
             modelBuilder.Entity("HomeServeIT.Web.Models.ApplicationUser", b =>
                 {
                     b.Property<string>("Id")
@@ -220,6 +310,9 @@ namespace HomeServeIT.Web.Migrations
                     b.Property<string>("ImageUrl")
                         .HasMaxLength(2000)
                         .HasColumnType("varchar(2000)");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("ItemName")
                         .IsRequired()
@@ -474,6 +567,8 @@ namespace HomeServeIT.Web.Migrations
                     b.HasIndex("CustomerID");
 
                     b.HasIndex("TechID");
+
+                    b.HasIndex("TechID", "ScheduledDate");
 
                     b.ToTable("ServiceRequests");
                 });
@@ -811,6 +906,23 @@ namespace HomeServeIT.Web.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
+                });
+
+            modelBuilder.Entity("HomeServeIT.Web.Models.ApplicationSetting", b =>
+                {
+                    b.HasOne("HomeServeIT.Web.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("HomeServeIT.Web.Models.ApplicationSettingAudit", b =>
+                {
+                    b.HasOne("HomeServeIT.Web.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("HomeServeIT.Web.Models.Customer", b =>

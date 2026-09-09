@@ -14,11 +14,14 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly HomeServeIT.Web.Data.ApplicationDbContext _context;
+        private readonly HomeServeIT.Web.Services.ApplicationSettingsService _settings;
 
-        public SystemController(UserManager<ApplicationUser> userManager, HomeServeIT.Web.Data.ApplicationDbContext context)
+        public SystemController(UserManager<ApplicationUser> userManager, HomeServeIT.Web.Data.ApplicationDbContext context,
+            HomeServeIT.Web.Services.ApplicationSettingsService settings)
         {
             _userManager = userManager;
             _context = context;
+            _settings = settings;
         }
 
         public async Task<IActionResult> UserManagement()
@@ -47,7 +50,7 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> InviteUser(string email, string role)
+        public async Task<IActionResult> InviteUser(string email, string role, [FromServices] HomeServeIT.Web.Services.AccountProfileService profiles)
         {
             var validRoles = new[] { Roles.Administrator, Roles.Technician, Roles.Customer };
             if (string.IsNullOrWhiteSpace(role) || !validRoles.Contains(role))
@@ -62,12 +65,11 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
                 return RedirectToAction(nameof(UserManagement));
             }
 
-            var user = new ApplicationUser { UserName = email, Email = email, EmailConfirmed = true };
-            var result = await _userManager.CreateAsync(user, "TempPass123!");
+            var user = new ApplicationUser { UserName = email.Trim(), Email = email.Trim(), FullName = email.Split('@')[0] };
+            var result = await profiles.CreateAsync(user, role);
             if (result.Succeeded)
             {
-                await _userManager.AddToRoleAsync(user, role);
-                TempData["SuccessMessage"] = $"User {email} created with role {role}.";
+                return await HomeServeIT.Web.Services.InvitationResult.ShowAsync(this, _userManager, user);
             }
             else
             {
@@ -78,50 +80,17 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditUser(string userId, string email, string role, string? password)
+        public async Task<IActionResult> EditUser(string userId, string email, string role, string? password,
+            [FromServices] HomeServeIT.Web.Services.AccountProfileService profiles)
         {
-            var validRoles = new[] { Roles.Administrator, Roles.Technician, Roles.Customer };
             var user = await _userManager.FindByIdAsync(userId);
-            if (user != null)
-            {
-                user.Email = email;
-                user.UserName = email;
-                var updateResult = await _userManager.UpdateAsync(user);
-
-                if (updateResult.Succeeded)
-                {
-                    // Update role
-                    var currentRoles = await _userManager.GetRolesAsync(user);
-                    if (!currentRoles.Contains(role) && validRoles.Contains(role))
-                    {
-                        await _userManager.RemoveFromRolesAsync(user, currentRoles);
-                        await _userManager.AddToRoleAsync(user, role);
-                    }
-
-                    // Update password if provided
-                    if (!string.IsNullOrEmpty(password))
-                    {
-                        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-                        var passResult = await _userManager.ResetPasswordAsync(user, token, password);
-                        if (!passResult.Succeeded)
-                        {
-                            TempData["ErrorMessage"] = "User updated, but password reset failed: " + string.Join(", ", passResult.Errors.Select(e => e.Description));
-                            return RedirectToAction(nameof(UserManagement));
-                        }
-                    }
-
-                    TempData["SuccessMessage"] = $"User {email} updated successfully.";
-                }
-                else
-                {
-                    TempData["ErrorMessage"] = string.Join(", ", updateResult.Errors.Select(e => e.Description));
-                }
-            }
-            else
-            {
-                TempData["ErrorMessage"] = "User not found.";
-            }
-
+            if (user == null) return NotFound();
+            var model = ProfileViewModel.FromUser(user);
+            model.Email = email;
+            var result = await profiles.UpdateAsync(user, model, role, password);
+            TempData[result.Succeeded ? "SuccessMessage" : "ErrorMessage"] = result.Succeeded
+                ? "Account updated successfully."
+                : string.Join(", ", result.Errors.Select(e => e.Description));
             return RedirectToAction(nameof(UserManagement));
         }
 
@@ -299,17 +268,62 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
             return RedirectToAction(nameof(ArchivedUsers));
         }
 
-        public IActionResult Settings()
+        public async Task<IActionResult> Settings(string? tab = null)
         {
-            return View();
+            return View(await _settings.GetPageAsync(tab));
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult UpdateSettings(string section)
+        public async Task<IActionResult> UpdateGeneral([Bind(Prefix = "General")] GeneralSettingsInput input)
         {
-            TempData["SuccessMessage"] = $"Settings for '{section}' updated successfully.";
-            return RedirectToAction(nameof(Settings));
+            if (!ModelState.IsValid) return await InvalidSettingsAsync("general", model => model.General = input);
+            return SettingsResult(await _settings.UpdateGeneralAsync(input, CurrentUserId()), "general");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateCompany([Bind(Prefix = "Company")] CompanySettingsInput input)
+        {
+            if (!ModelState.IsValid) return await InvalidSettingsAsync("company", model => model.Company = input);
+            return SettingsResult(await _settings.UpdateCompanyAsync(input, CurrentUserId()), "company");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateNotifications([Bind(Prefix = "Notifications")] NotificationSettingsInput input)
+        {
+            if (!ModelState.IsValid) return await InvalidSettingsAsync("notifications", model => model.Notifications = input);
+            return SettingsResult(await _settings.UpdateNotificationsAsync(input, CurrentUserId()), "notifications");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateSecurity([Bind(Prefix = "Security")] SecuritySettingsInput input)
+        {
+            if (!ModelState.IsValid) return await InvalidSettingsAsync("security", model => model.Security = input);
+            return SettingsResult(await _settings.UpdateSecurityAsync(input, CurrentUserId()), "security");
+        }
+
+        private string CurrentUserId() => _userManager.GetUserId(User)
+            ?? throw new InvalidOperationException("An authenticated administrator is required.");
+
+        private IActionResult SettingsResult(HomeServeIT.Web.Services.SettingsUpdateResult result, string tab)
+        {
+            if (result.Succeeded)
+                TempData["SuccessMessage"] = "Settings saved successfully.";
+            else
+                TempData["ErrorMessage"] = result.Conflict
+                    ? "These settings changed in another session. Review the latest values and try again."
+                    : "Settings could not be saved.";
+            return RedirectToAction(nameof(Settings), new { tab });
+        }
+
+        private async Task<IActionResult> InvalidSettingsAsync(string tab, Action<SystemSettingsViewModel> preserveInput)
+        {
+            var model = await _settings.GetPageAsync(tab);
+            preserveInput(model);
+            return View(nameof(Settings), model);
         }
     }
 }

@@ -21,7 +21,7 @@ public class StockMovement
 
     [Required]
     [MaxLength(50)]
-    public string MovementType { get; set; } = "Job Usage"; // "Job Usage", "Restock", "Initial Stock", "Manual Adjustment", "Return"
+    public string MovementType { get; set; } = "Job Usage"; // "Job Usage", "Restock", "Initial Stock", "Manual Adjustment", "Return", "Archived"
 
     /// <summary>
     /// Negative for consumption/usage (e.g. -2), positive for additions/restock (+10).

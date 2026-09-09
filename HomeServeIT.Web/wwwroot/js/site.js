@@ -45,7 +45,7 @@
 
     function resetHeadings(headings) {
         headings.forEach(heading => {
-            heading.setAttribute('aria-sort', 'none');
+            setSortState(heading, 'none');
             heading.title = 'Sort ascending';
             setIndicator(heading.querySelector('.table-sort-indicator'));
         });
@@ -56,8 +56,8 @@
         heading.dataset.sortControlReady = 'true';
         heading.classList.add('table-sort-heading');
         heading.tabIndex = 0;
-        heading.setAttribute('role', 'button');
-        heading.setAttribute('aria-sort', 'none');
+        heading.setAttribute('role', heading.matches('th') ? 'columnheader' : 'button');
+        setSortState(heading, 'none');
         heading.title = 'Sort ascending';
 
         const indicator = document.createElement('span');
@@ -106,11 +106,13 @@
         directions.className = 'table-sort-toolbar__directions';
         const ascButton = document.createElement('button');
         ascButton.type = 'button';
+        ascButton.setAttribute('aria-label', 'Sort ascending');
         ascButton.className = 'table-sort-toolbar__direction';
         ascButton.dataset.direction = 'asc';
         ascButton.innerHTML = `${sortIcons.asc}<span>Ascending</span>`;
         const descButton = document.createElement('button');
         descButton.type = 'button';
+        descButton.setAttribute('aria-label', 'Sort descending');
         descButton.className = 'table-sort-toolbar__direction';
         descButton.dataset.direction = 'desc';
         descButton.innerHTML = `${sortIcons.desc}<span>Descending</span>`;
@@ -166,7 +168,7 @@
             const heading = headings[columnIndex];
             if (!heading) return;
             resetHeadings(headings);
-            heading.setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
+            setSortState(heading, direction === 'asc' ? 'ascending' : 'descending');
             heading.title = direction === 'asc' ? 'Sort descending' : 'Sort ascending';
             setIndicator(heading.querySelector('.table-sort-indicator'), direction);
 
@@ -191,7 +193,7 @@
             if (heading.dataset.sortable === 'false' || heading.colSpan > 1 || !label || label === 'action' || label === 'actions') return;
 
             prepareHeading(heading, () => {
-                const direction = heading.getAttribute('aria-sort') === 'ascending' ? 'desc' : 'asc';
+                const direction = heading.dataset.sortDirection === 'ascending' ? 'desc' : 'asc';
                 applySort(columnIndex, direction);
             });
         });
@@ -216,7 +218,7 @@
             const heading = headings.find(candidate => Number(candidate.dataset.gridSort) === columnIndex);
             if (!heading) return;
             resetHeadings(headings);
-            heading.setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
+            setSortState(heading, direction === 'asc' ? 'ascending' : 'descending');
             heading.title = direction === 'asc' ? 'Sort descending' : 'Sort ascending';
             setIndicator(heading.querySelector('.table-sort-indicator'), direction);
 
@@ -236,7 +238,7 @@
             const columnIndex = Number(heading.dataset.gridSort);
             if (!Number.isInteger(columnIndex) || heading.dataset.sortable === 'false') return;
             prepareHeading(heading, () => {
-                const direction = heading.getAttribute('aria-sort') === 'ascending' ? 'desc' : 'asc';
+                const direction = heading.dataset.sortDirection === 'ascending' ? 'desc' : 'asc';
                 applySort(columnIndex, direction);
             });
         });
@@ -247,6 +249,12 @@
     function initializeSorting(root = document) {
         root.querySelectorAll('table').forEach(enhanceTable);
         root.querySelectorAll('[data-sort-grid]').forEach(enhanceSortableGrid);
+    }
+
+    function setSortState(heading, direction) {
+        heading.dataset.sortDirection = direction;
+        if (heading.matches('th')) heading.setAttribute('aria-sort', direction);
+        else heading.setAttribute('aria-label', heading.textContent.trim() + ': sort ' + direction);
     }
 
     document.addEventListener('DOMContentLoaded', () => initializeSorting());
@@ -380,10 +388,10 @@
                     <div><strong>Preferred time</strong><small>Philippine Time · UTC+8</small></div>
                 </div>
                 <div class="premium-time-controls">
-                    <label><span>Hour</span><select data-picker-hour aria-label="Hour"></select></label>
+                    <label><span>Hour</span><select data-native-select="true" data-picker-hour aria-label="Hour"></select></label>
                     <span class="premium-time-colon" aria-hidden="true">:</span>
-                    <label><span>Minute</span><select data-picker-minute aria-label="Minute"></select></label>
-                    <label class="premium-time-period"><span>Period</span><select data-picker-period aria-label="AM or PM"><option>AM</option><option>PM</option></select></label>
+                    <label><span>Minute</span><select data-native-select="true" data-picker-minute aria-label="Minute"></select></label>
+                    <label class="premium-time-period"><span>Period</span><select data-native-select="true" data-picker-period aria-label="AM or PM"><option>AM</option><option>PM</option></select></label>
                 </div>
             </div>
             <p class="premium-date-error" data-picker-error role="alert" hidden></p>

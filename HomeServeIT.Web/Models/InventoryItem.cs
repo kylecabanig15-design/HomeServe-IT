@@ -27,6 +27,12 @@ public class InventoryItem
     public decimal UnitPrice { get; set; }
 
     public int ReorderLevel { get; set; } = 0;
+
+    /// <summary>
+    /// Archived materials are retained for job, quotation, and stock-movement history,
+    /// but cannot be selected or changed through active inventory workflows.
+    /// </summary>
+    public bool IsArchived { get; set; }
     
     [MaxLength(2000)]
     public string? ImageUrl { get; set; }

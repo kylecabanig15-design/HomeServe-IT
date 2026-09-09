@@ -1,0 +1,56 @@
+/* Shared role shells and accessible interaction defaults; not generated CSS. */
+/* Accessible counterparts for the existing light-background text and brand tokens. */
+[class~="text-[#8a929e]"], [class~="text-gray-400"], [class~="text-slate-400"],
+[class~="text-gray-500"] { color: #556170; }
+/* Keep the original bright HomeServe blue. Small text and white-on-blue controls
+   use the closest contrast-safe companions rather than the former dark navy. */
+[class~="text-[#0878f9]"], [class~="text-primary"], [class~="text-blue-500"] { color: #086cda; }
+[class~="bg-primary"][class~="text-white"], [class~="bg-[#0878f9]"][class~="text-white"] { background-color: #0872e8; }
+[class~="text-green-600"] { color: #166534; }
+[class~="text-emerald-600"] { color: #047857; }
+[class~="text-amber-600"] { color: #92400e; }
+.table-sort-heading, .table-sort-toolbar__label { color: #556170; }
+[x-cloak], [hidden] { display: none !important; }
+:focus-visible { outline: 3px solid #174ea6 !important; outline-offset: 3px; }
+.skip-link { position: fixed; top: -100px; left: 1rem; z-index: 300; padding: .75rem; background: white; color: #174ea6; }
+.skip-link:focus { top: .5rem; }
+.app-main, .app-main > *, .app-shell .app-header { min-width: 0; max-width: 100%; }
+.app-main { width: 0; }
+.app-nav-toggle, .app-nav-backdrop { display: none; }
+.app-header input { color: #475569; }
+.app-header button { min-height: 44px; min-width: 44px; }
+.table-scroll, [data-sort-grid] { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+.table-scroll > table { min-width: 640px; }
+.table-sort-toolbar { flex-wrap: wrap; }
+[data-sort-grid] > :has([data-grid-sort]), [data-sort-grid] [data-sort-row] { min-width: 820px; }
+[data-managed-dialog] { overscroll-behavior: contain; }
+[data-managed-dialog][class~="relative"] { position: fixed; inset: 0; }
+@media (max-width: 1023px) {
+  .app-nav-toggle { display: inline-flex; align-items: center; justify-content: center; width: 44px; flex: none; border-radius: .5rem; }
+  .app-header { gap: .25rem; padding: 0 .5rem; }
+  .app-header .app-brand { width: auto; min-width: 0; max-width: 10rem; padding-right: 0; }
+  .app-header .app-brand > div:last-child { min-width: 0; }
+  .app-header .app-brand p { max-width: 7.25rem; overflow: hidden; text-overflow: ellipsis; }
+  .app-header-search { display: none !important; }
+  .app-header > [x-data] button > div:nth-child(2) { display: none; }
+  .app-navigation { display: none !important; position: fixed !important; top: 64px !important; left: 0; bottom: 0; width: min(280px, 85vw) !important; height: calc(100dvh - 64px) !important; z-index: 80 !important; }
+  .app-navigation a { min-height: 44px; }
+  .app-shell[data-nav-open] .app-navigation { display: flex !important; }
+  .app-shell[data-nav-open] .app-nav-backdrop { display: block; position: fixed; inset: 64px 0 0; background: #0f172a80; z-index: 70; }
+  .app-shell[data-nav-open] { overflow: hidden; }
+  .app-main { width: 100%; }
+  .app-main > div { padding-left: 1rem; padding-right: 1rem; }
+  .app-main button, .app-main a, .app-main select { min-height: 44px; }
+  .app-main .grid { min-width: 0; }
+}
+@media (max-width: 640px) {
+  .public-header > div { padding-inline: .75rem; justify-content: space-between; gap: .5rem; }
+  .public-header a { min-height: 44px; display: inline-flex; align-items: center; }
+  .public-header > div > a span { display: none; }
+  .public-footer > div { padding: 1rem; height: auto; flex-wrap: wrap; gap: .75rem; }
+  .public-footer p { font-size: .75rem; }
+  [data-managed-dialog] .sm\:max-w-lg { max-width: calc(100vw - 2rem); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

@@ -1,134 +1,124 @@
+@model HomeServeIT.Web.Areas.Admin.Models.SystemSettingsViewModel
 @{
     ViewData["Title"] = "Settings";
 }
 
-<div class="content-stretch flex flex-col items-start max-w-7xl p-[32px] relative shrink-0 w-full mx-auto">
-    <!-- Header -->
-    <div class="flex items-start justify-between w-full">
-        <div class="content-stretch flex flex-col items-start relative shrink-0">
-            <h1 class="font-['Inter'] font-[650] leading-[42px] relative shrink-0 text-[#17191c] text-[28px] whitespace-nowrap">
-                Settings
-            </h1>
-            <p class="font-['Inter'] font-normal leading-[21px] mt-1 relative shrink-0 text-[#5d6470] text-[14px] whitespace-nowrap">
-                Configure application preferences and system settings.
-            </p>
-        </div>
-    </div>
-    
-    <div x-data="{ activeTab: 'general' }" class="flex flex-col md:flex-row gap-8 w-full mt-8 items-start">
-        <!-- Vertical Tabs -->
-        <div class="w-full md:w-[240px] shrink-0 flex flex-col gap-1">
-            <button x-on:click="activeTab = 'general'" :class="{ 'bg-blue-50 text-[#0878f9]': activeTab === 'general', 'text-[#5d6470] hover:bg-gray-50 hover:text-[#17191c]': activeTab !== 'general' }" class="flex items-center justify-between px-4 py-2.5 rounded-[8px] font-['Inter'] font-[550] text-[14px] transition-colors">
-                General
-            </button>
-            <button x-on:click="activeTab = 'company'" :class="{ 'bg-blue-50 text-[#0878f9]': activeTab === 'company', 'text-[#5d6470] hover:bg-gray-50 hover:text-[#17191c]': activeTab !== 'company' }" class="flex items-center justify-between px-4 py-2.5 rounded-[8px] font-['Inter'] font-[550] text-[14px] transition-colors">
-                Company profile
-            </button>
-            <button x-on:click="activeTab = 'notifications'" :class="{ 'bg-blue-50 text-[#0878f9]': activeTab === 'notifications', 'text-[#5d6470] hover:bg-gray-50 hover:text-[#17191c]': activeTab !== 'notifications' }" class="flex items-center justify-between px-4 py-2.5 rounded-[8px] font-['Inter'] font-[550] text-[14px] transition-colors">
-                Notifications
-            </button>
-            <button x-on:click="activeTab = 'security'" :class="{ 'bg-blue-50 text-[#0878f9]': activeTab === 'security', 'text-[#5d6470] hover:bg-gray-50 hover:text-[#17191c]': activeTab !== 'security' }" class="flex items-center justify-between px-4 py-2.5 rounded-[8px] font-['Inter'] font-[550] text-[14px] transition-colors">
-                Security
-            </button>
-            <button x-on:click="activeTab = 'integrations'" :class="{ 'bg-blue-50 text-[#0878f9]': activeTab === 'integrations', 'text-[#5d6470] hover:bg-gray-50 hover:text-[#17191c]': activeTab !== 'integrations' }" class="flex items-center justify-between px-4 py-2.5 rounded-[8px] font-['Inter'] font-[550] text-[14px] transition-colors">
-                Integrations
-            </button>
-        </div>
-        
-        <!-- Settings Form: General -->
-        <div x-show="activeTab === 'general'" class="flex-1 w-full bg-white border border-[#e7eaf0] rounded-[16px] shadow-sm flex flex-col" style="display: none;">
-            <div class="p-6 border-b border-[#e7eaf0]">
-                <h2 class="font-['Inter'] font-[650] text-[#17191c] text-[18px]">General settings</h2>
-                <p class="font-['Inter'] font-normal text-[#5d6470] text-[13px] mt-1">Manage core system preferences and regional settings.</p>
-            </div>
-            
-            <form method="post" asp-action="UpdateSettings" asp-controller="System" asp-area="Admin">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="section" value="general" />
-                <div class="p-6 flex flex-col gap-6">
-                    <!-- System name -->
-                    <div class="flex flex-col gap-1.5">
-                        <label class="font-['Inter'] font-[550] text-[#5d6470] text-[13px]">System name</label>
-                        <input type="text" name="systemName" value="HomeServe IT" class="w-full max-w-md bg-white border border-[#e7eaf0] rounded-[8px] h-[40px] px-[12px] font-['Inter'] text-[14px] text-[#17191c] outline-none focus:border-[#0878f9] transition-colors" />
-                    </div>
-                    
-                    <!-- Timezone -->
-                    <div class="flex flex-col gap-1.5">
-                        <label class="font-['Inter'] font-[550] text-[#5d6470] text-[13px]">Timezone</label>
-                        <select name="timezone" class="ui-select max-w-md text-[14px]">
-                            <option value="Asia/Manila">Asia/Manila (UTC+08:00)</option>
-                            <option value="UTC">UTC (UTC+00:00)</option>
-                            <option value="America/New_York">Eastern Time (UTC-05:00)</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Currency -->
-                    <div class="flex flex-col gap-1.5">
-                        <label class="font-['Inter'] font-[550] text-[#5d6470] text-[13px]">Currency</label>
-                        <select name="currency" class="ui-select max-w-md text-[14px]">
-                            <option value="PHP">Philippine Peso (₱)</option>
-                            <option value="USD">US Dollar ($)</option>
-                            <option value="EUR">Euro (€)</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Support email -->
-                    <div class="flex flex-col gap-1.5">
-                        <label class="font-['Inter'] font-[550] text-[#5d6470] text-[13px]">Support email</label>
-                        <input type="email" name="supportEmail" value="support@homeserveit.ph" class="w-full max-w-md bg-white border border-[#e7eaf0] rounded-[8px] h-[40px] px-[12px] font-['Inter'] text-[14px] text-[#17191c] outline-none focus:border-[#0878f9] transition-colors" />
-                    </div>
-                </div>
-                
-                <div class="p-6 border-t border-[#e7eaf0] bg-gray-50/50 flex items-center justify-end gap-3 rounded-b-[16px]">
-                    <button type="button" class="bg-white border border-[#e7eaf0] hover:bg-gray-50 transition-colors text-[#17191c] font-['Inter'] font-semibold text-[14px] px-[16px] py-[8px] rounded-[8px] shadow-sm">
-                        Cancel
-                    </button>
-                    <button type="submit" class="bg-[#0878f9] hover:bg-blue-600 transition-colors text-white font-['Inter'] font-semibold text-[14px] px-[16px] py-[8px] rounded-[8px] shadow-sm">
-                        Save changes
-                    </button>
-                </div>
-            </form>
-        </div>
+<div class="flex w-full max-w-7xl flex-col items-start p-4 sm:p-6 lg:p-8 mx-auto">
+    <header>
+        <h1 class="font-['Inter'] font-[650] leading-[42px] text-[#17191c] text-[28px]">Settings</h1>
+        <p class="mt-1 font-['Inter'] text-[#5d6470] text-[14px]">Configure persisted application behavior and project details.</p>
+    </header>
 
-        <!-- Settings Form: Company -->
-        <div x-show="activeTab === 'company'" class="flex-1 w-full bg-white border border-[#e7eaf0] rounded-[16px] shadow-sm flex flex-col" style="display: none;">
-            <div class="p-6 border-b border-[#e7eaf0]">
-                <h2 class="font-['Inter'] font-[650] text-[#17191c] text-[18px]">Company profile</h2>
-                <p class="font-['Inter'] font-normal text-[#5d6470] text-[13px] mt-1">Manage company details, address, and logo.</p>
-            </div>
-            
-            <form method="post" asp-action="UpdateSettings" asp-controller="System" asp-area="Admin">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="section" value="company" />
-                <div class="p-6 flex flex-col gap-6">
-                    <div class="flex flex-col gap-1.5">
-                        <label class="font-['Inter'] font-[550] text-[#5d6470] text-[13px]">Company name</label>
-                        <input type="text" name="companyName" value="HomeServe IT Solutions" class="w-full max-w-md bg-white border border-[#e7eaf0] rounded-[8px] h-[40px] px-[12px] font-['Inter'] text-[14px] text-[#17191c] outline-none focus:border-[#0878f9] transition-colors" />
-                    </div>
-                    <div class="flex flex-col gap-1.5">
-                        <label class="font-['Inter'] font-[550] text-[#5d6470] text-[13px]">Company Address</label>
-                        <input type="text" name="companyAddress" value="Manila, Philippines" class="w-full max-w-md bg-white border border-[#e7eaf0] rounded-[8px] h-[40px] px-[12px] font-['Inter'] text-[14px] text-[#17191c] outline-none focus:border-[#0878f9] transition-colors" />
-                    </div>
-                </div>
-                
-                <div class="p-6 border-t border-[#e7eaf0] bg-gray-50/50 flex items-center justify-end gap-3 rounded-b-[16px]">
-                    <button type="button" class="bg-white border border-[#e7eaf0] hover:bg-gray-50 transition-colors text-[#17191c] font-['Inter'] font-semibold text-[14px] px-[16px] py-[8px] rounded-[8px] shadow-sm">
-                        Cancel
-                    </button>
-                    <button type="submit" class="bg-[#0878f9] hover:bg-blue-600 transition-colors text-white font-['Inter'] font-semibold text-[14px] px-[16px] py-[8px] rounded-[8px] shadow-sm">
-                        Save changes
-                    </button>
-                </div>
-            </form>
-        </div>
+    <div x-data="{ activeTab: '@Model.ActiveTab' }" class="mt-8 flex w-full flex-col items-start gap-8 md:flex-row">
+        <nav aria-label="Settings sections" role="tablist" class="flex w-full shrink-0 flex-col gap-1 md:w-[240px]">
+            @foreach (var tab in new[] { ("general", "General"), ("company", "Company profile"), ("notifications", "Notifications"), ("security", "Security"), ("integrations", "Integrations") })
+            {
+                <button type="button" x-on:click="activeTab = '@tab.Item1'" :aria-selected="activeTab === '@tab.Item1'" role="tab"
+                        :class="{ 'bg-blue-50 text-[#0878f9]': activeTab === '@tab.Item1', 'text-[#5d6470] hover:bg-gray-50 hover:text-[#17191c]': activeTab !== '@tab.Item1' }"
+                        class="flex min-h-11 items-center justify-between rounded-lg px-4 py-2.5 text-left font-['Inter'] font-[550] text-[14px] transition-colors">
+                    @tab.Item2
+                </button>
+            }
+        </nav>
 
-        <!-- Settings Form: Placeholder for others -->
-        <div x-show="['notifications', 'security', 'integrations'].includes(activeTab)" class="flex-1 w-full bg-white border border-[#e7eaf0] rounded-[16px] shadow-sm flex flex-col items-center justify-center p-12 text-center" style="display: none;">
-            <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+        <section x-show="activeTab === 'general'" role="tabpanel" class="w-full flex-1 rounded-2xl border border-[#e7eaf0] bg-white shadow-sm">
+            <div class="border-b border-[#e7eaf0] p-6">
+                <h2 class="text-lg font-[650]">General settings</h2>
+                <p class="mt-1 text-[13px] text-[#5d6470]">These values update the shared application branding and support contact.</p>
             </div>
-            <h3 class="font-['Inter'] font-semibold text-[#17191c] text-[16px]">Under Construction</h3>
-            <p class="font-['Inter'] text-[#5d6470] text-[14px] mt-2">This settings section will be available soon.</p>
-        </div>
+            <form asp-action="UpdateGeneral" method="post">
+                <input asp-for="General.ConcurrencyStamp" type="hidden" />
+                <div asp-validation-summary="ModelOnly" class="px-6 pt-4 text-sm text-red-700" role="alert"></div>
+                <div class="flex flex-col gap-6 p-6">
+                    <div class="flex flex-col gap-1.5">
+                        <label asp-for="General.SystemName" class="text-[13px] font-[550] text-[#5d6470]"></label>
+                        <input asp-for="General.SystemName" class="h-11 w-full max-w-md rounded-lg border border-[#c8d0dc] px-3 text-sm outline-none focus:border-[#0878f9]" />
+                        <span asp-validation-for="General.SystemName" class="text-xs text-red-700"></span>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label asp-for="General.SupportEmail" class="text-[13px] font-[550] text-[#5d6470]"></label>
+                        <input asp-for="General.SupportEmail" class="h-11 w-full max-w-md rounded-lg border border-[#c8d0dc] px-3 text-sm outline-none focus:border-[#0878f9]" />
+                        <span asp-validation-for="General.SupportEmail" class="text-xs text-red-700"></span>
+                    </div>
+                </div>
+                <partial name="_SettingsActions" />
+            </form>
+        </section>
+
+        <section x-cloak x-show="activeTab === 'company'" role="tabpanel" class="w-full flex-1 rounded-2xl border border-[#e7eaf0] bg-white shadow-sm">
+            <div class="border-b border-[#e7eaf0] p-6">
+                <h2 class="text-lg font-[650]">Company or project profile</h2>
+                <p class="mt-1 text-[13px] text-[#5d6470]">For this university prototype, these identify the project rather than a registered business.</p>
+            </div>
+            <form asp-action="UpdateCompany" method="post">
+                <input asp-for="Company.ConcurrencyStamp" type="hidden" />
+                <div class="flex flex-col gap-6 p-6">
+                    <div class="flex flex-col gap-1.5">
+                        <label asp-for="Company.CompanyName" class="text-[13px] font-[550] text-[#5d6470]"></label>
+                        <input asp-for="Company.CompanyName" class="h-11 w-full max-w-md rounded-lg border border-[#c8d0dc] px-3 text-sm outline-none focus:border-[#0878f9]" />
+                        <span asp-validation-for="Company.CompanyName" class="text-xs text-red-700"></span>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label asp-for="Company.CompanyAddress" class="text-[13px] font-[550] text-[#5d6470]"></label>
+                        <input asp-for="Company.CompanyAddress" class="h-11 w-full max-w-md rounded-lg border border-[#c8d0dc] px-3 text-sm outline-none focus:border-[#0878f9]" />
+                        <span asp-validation-for="Company.CompanyAddress" class="text-xs text-red-700"></span>
+                    </div>
+                </div>
+                <partial name="_SettingsActions" />
+            </form>
+        </section>
+
+        <section x-cloak x-show="activeTab === 'notifications'" role="tabpanel" class="w-full flex-1 rounded-2xl border border-[#e7eaf0] bg-white shadow-sm">
+            <div class="border-b border-[#e7eaf0] p-6">
+                <h2 class="text-lg font-[650]">Notification refresh</h2>
+                <p class="mt-1 text-[13px] text-[#5d6470]">Controls the background process that materializes in-app notifications. This does not send email or SMS.</p>
+            </div>
+            <form asp-action="UpdateNotifications" method="post">
+                <input asp-for="Notifications.ConcurrencyStamp" type="hidden" />
+                <div class="flex flex-col gap-6 p-6">
+                    <label class="flex max-w-xl items-start gap-3 rounded-xl border border-[#e7eaf0] p-4">
+                        <input asp-for="Notifications.RefreshEnabled" class="mt-1 size-5" />
+                        <span><span class="block text-sm font-semibold">Enable background refresh</span><span class="mt-1 block text-xs leading-5 text-[#5d6470]">When disabled, existing notifications remain visible but new workflow notifications are not generated by the polling worker.</span></span>
+                    </label>
+                    <div class="flex flex-col gap-1.5">
+                        <label asp-for="Notifications.RefreshIntervalSeconds" class="text-[13px] font-[550] text-[#5d6470]"></label>
+                        <input asp-for="Notifications.RefreshIntervalSeconds" class="h-11 w-full max-w-xs rounded-lg border border-[#c8d0dc] px-3 text-sm outline-none focus:border-[#0878f9]" />
+                        <span class="text-xs text-[#5d6470]">Allowed range: 15–3600 seconds.</span>
+                        <span asp-validation-for="Notifications.RefreshIntervalSeconds" class="text-xs text-red-700"></span>
+                    </div>
+                </div>
+                <partial name="_SettingsActions" />
+            </form>
+        </section>
+
+        <section x-cloak x-show="activeTab === 'security'" role="tabpanel" class="w-full flex-1 rounded-2xl border border-[#e7eaf0] bg-white shadow-sm">
+            <div class="border-b border-[#e7eaf0] p-6">
+                <h2 class="text-lg font-[650]">Security settings</h2>
+                <p class="mt-1 text-[13px] text-[#5d6470]">Controls public account creation. Identity password and lockout rules remain enforced in server configuration.</p>
+            </div>
+            <form asp-action="UpdateSecurity" method="post">
+                <input asp-for="Security.ConcurrencyStamp" type="hidden" />
+                <div class="flex flex-col gap-5 p-6">
+                    <label class="flex max-w-xl items-start gap-3 rounded-xl border border-[#e7eaf0] p-4">
+                        <input asp-for="Security.AllowPublicRegistration" class="mt-1 size-5" />
+                        <span><span class="block text-sm font-semibold">Allow public customer registration</span><span class="mt-1 block text-xs leading-5 text-[#5d6470]">When disabled, the registration page and direct registration POSTs are blocked. Administrators can still create accounts through User Management.</span></span>
+                    </label>
+                    <div class="max-w-xl rounded-xl bg-[#f8fafc] p-4 text-xs leading-5 text-[#5d6470]">
+                        Enforced login policy: lock accounts for 15 minutes after 5 failed attempts. Passwords require at least 8 characters with upper- and lowercase letters, a number, and a symbol.
+                    </div>
+                </div>
+                <partial name="_SettingsActions" />
+            </form>
+        </section>
+
+        <section x-cloak x-show="activeTab === 'integrations'" role="tabpanel" class="w-full flex-1 rounded-2xl border border-[#e7eaf0] bg-white p-8 shadow-sm">
+            <h2 class="text-lg font-[650]">Integrations</h2>
+            <p class="mt-2 max-w-xl text-sm leading-6 text-[#5d6470]">No production integrations are configured. ScreenshotBot is a local development utility and the payment status in this prototype is not connected to a payment provider.</p>
+            <p class="mt-4 inline-flex rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">No configurable integrations</p>
+        </section>
     </div>
 </div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

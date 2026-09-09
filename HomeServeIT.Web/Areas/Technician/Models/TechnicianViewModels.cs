@@ -13,6 +13,9 @@ namespace HomeServeIT.Web.Areas.Technician.Models
 
     public class TechnicianAssignedJobsViewModel
     {
+        public HashSet<int> PaidRequestIds { get; set; } = new();
+        public HashSet<int> QuotedRequestIds { get; set; } = new();
+        public HashSet<int> PendingReviewRequestIds { get; set; } = new();
         public List<ServiceRequest> ActiveJobs { get; set; } = new();
         public List<ServiceRequest> CompletedJobs { get; set; } = new();
     }

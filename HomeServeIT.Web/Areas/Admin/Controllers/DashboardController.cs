@@ -45,12 +45,12 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
                     .Where(i => i.PaymentStatus == "Paid")
                     .SumAsync(i => (decimal?)i.TotalAmount) ?? 0,
                 LowStockItemsCount = await _context.InventoryItems
-                    .CountAsync(i => i.StockQuantity <= i.ReorderLevel),
+                    .CountAsync(i => !i.IsArchived && i.StockQuantity <= i.ReorderLevel),
                 NewCustomersThisWeekCount = await _context.Customers
                     .Include(c => c.User)
                     .CountAsync(c => c.User != null && c.User.DateCreated >= startOfWeek),
                 CompletedJobsThisMonthCount = await _context.ServiceRequests
-                    .CountAsync(r => r.Status == "Completed" && ((r.CompletedDate.HasValue && r.CompletedDate.Value >= startOfMonth) || r.ScheduledDate >= startOfMonth)),
+                    .CountAsync(r => r.Status == "Completed" && (r.CompletedDate.HasValue && r.CompletedDate.Value >= startOfMonth && r.CompletedDate.Value <= DateTime.UtcNow)),
                 
                 // Status distribution
                 CompletedCount = await _context.ServiceRequests.CountAsync(r => r.Status == "Completed"),

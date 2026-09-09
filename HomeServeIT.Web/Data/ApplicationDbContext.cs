@@ -19,6 +19,33 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<StockMovement> StockMovements { get; set; }
     public DbSet<SupportTicket> SupportTickets { get; set; }
     public DbSet<UserNotification> UserNotifications { get; set; }
+    public DbSet<ApplicationSetting> ApplicationSettings { get; set; }
+    public DbSet<ApplicationSettingAudit> ApplicationSettingAudits { get; set; }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        ValidateCompletionDates();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        ValidateCompletionDates();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    private void ValidateCompletionDates()
+    {
+        foreach (var entry in ChangeTracker.Entries<ServiceRequest>())
+        {
+            if (entry.State != EntityState.Added && !(entry.State == EntityState.Modified
+                && (entry.Property(r => r.CompletedDate).IsModified || entry.Property(r => r.ScheduledDate).IsModified
+                    || entry.Property(r => r.Status).IsModified))) continue;
+            if (entry.Entity.Status == "Completed" && (entry.Entity.CompletedDate == null
+                || entry.Entity.CompletedDate > DateTime.UtcNow))
+                throw new InvalidOperationException("Completion requires a recorded date that is not in the future.");
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -36,6 +63,14 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany()
             .HasForeignKey(s => s.TechID)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // Keep the single-column index because MySQL requires an index whose
+        // leading columns support the technician foreign key.
+        builder.Entity<ServiceRequest>()
+            .HasIndex(s => s.TechID);
+
+        builder.Entity<ServiceRequest>()
+            .HasIndex(s => new { s.TechID, s.ScheduledDate });
 
         builder.Entity<JobInventoryUsage>()
             .HasOne(u => u.InventoryItem)
@@ -73,5 +108,24 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         builder.Entity<UserNotification>()
             .HasIndex(n => new { n.RecipientUserID, n.SourceKey })
             .IsUnique();
+
+        builder.Entity<ApplicationSetting>()
+            .Property(s => s.ConcurrencyStamp)
+            .IsConcurrencyToken();
+
+        builder.Entity<ApplicationSetting>()
+            .HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey(s => s.UpdatedByUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<ApplicationSettingAudit>()
+            .HasKey(a => a.AuditId);
+
+        builder.Entity<ApplicationSettingAudit>()
+            .HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey(a => a.ActorUserId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

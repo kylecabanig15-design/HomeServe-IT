@@ -1,3 +1,4 @@
+using System.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -15,11 +16,16 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly InventoryCatalogService _inventoryCatalogService;
 
-        public FinanceController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public FinanceController(
+            ApplicationDbContext context,
+            UserManager<ApplicationUser> userManager,
+            InventoryCatalogService inventoryCatalogService)
         {
             _context = context;
             _userManager = userManager;
+            _inventoryCatalogService = inventoryCatalogService;
         }
 
         public async Task<IActionResult> Billing()
@@ -53,6 +59,7 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
         public async Task<IActionResult> Inventory()
         {
             var items = await _context.InventoryItems
+                .Where(i => !i.IsArchived)
                 .OrderBy(i => i.ItemName)
                 .ToListAsync();
             return View(items);
@@ -191,6 +198,8 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
                 return RedirectToAction(nameof(Inventory));
             }
 
+            item.IsArchived = false;
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
             _context.InventoryItems.Add(item);
             await _context.SaveChangesAsync();
 
@@ -214,6 +223,7 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
                 await _context.SaveChangesAsync();
             }
 
+            await transaction.CommitAsync();
             TempData["SuccessMessage"] = $"Inventory item '{item.ItemName}' added successfully.";
             return RedirectToAction(nameof(Inventory));
         }
@@ -228,19 +238,33 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
                 return RedirectToAction(nameof(Inventory));
             }
 
-            var existingItem = await _context.InventoryItems.FindAsync(item.ItemID);
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+            var existingItem = await _context.InventoryItems
+                .AsNoTracking()
+                .SingleOrDefaultAsync(candidate => candidate.ItemID == item.ItemID && !candidate.IsArchived);
             if (existingItem != null)
             {
                 var diff = item.StockQuantity - existingItem.StockQuantity;
+                var updated = await _context.InventoryItems
+                    .Where(candidate => candidate.ItemID == item.ItemID
+                        && !candidate.IsArchived
+                        && candidate.StockQuantity == existingItem.StockQuantity)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(candidate => candidate.ItemName, item.ItemName)
+                        .SetProperty(candidate => candidate.Category, item.Category)
+                        .SetProperty(candidate => candidate.SKU, item.SKU)
+                        .SetProperty(candidate => candidate.StockQuantity, item.StockQuantity)
+                        .SetProperty(candidate => candidate.UnitCost, item.UnitCost)
+                        .SetProperty(candidate => candidate.UnitPrice, item.UnitPrice)
+                        .SetProperty(candidate => candidate.ReorderLevel, item.ReorderLevel)
+                        .SetProperty(candidate => candidate.ImageUrl, item.ImageUrl));
 
-                existingItem.ItemName = item.ItemName;
-                existingItem.Category = item.Category;
-                existingItem.SKU = item.SKU;
-                existingItem.StockQuantity = item.StockQuantity;
-                existingItem.UnitCost = item.UnitCost;
-                existingItem.UnitPrice = item.UnitPrice;
-                existingItem.ReorderLevel = item.ReorderLevel;
-                existingItem.ImageUrl = item.ImageUrl;
+                if (updated == 0)
+                {
+                    await transaction.RollbackAsync();
+                    TempData["ErrorMessage"] = "Inventory changed while you were editing it. Reload and try again.";
+                    return RedirectToAction(nameof(Inventory));
+                }
 
                 if (diff != 0)
                 {
@@ -262,7 +286,12 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
                 }
 
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
                 TempData["SuccessMessage"] = $"Inventory item '{item.ItemName}' updated successfully.";
+            }
+            else
+            {
+                await transaction.RollbackAsync();
             }
             return RedirectToAction(nameof(Inventory));
         }
@@ -271,13 +300,22 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteInventoryItem(int itemId)
         {
-            var item = await _context.InventoryItems.FindAsync(itemId);
-            if (item != null)
+            var currentUser = await _userManager.GetUserAsync(User);
+            var performerName = currentUser?.FullName ?? User.Identity?.Name ?? "Administrator";
+            var result = await _inventoryCatalogService.ArchiveAsync(
+                itemId,
+                $"{performerName} (Admin)",
+                HttpContext.RequestAborted);
+
+            if (result.Status == InventoryArchiveStatus.Archived)
             {
-                _context.InventoryItems.Remove(item);
-                await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = $"Inventory item '{item.ItemName}' deleted successfully.";
+                TempData["SuccessMessage"] = $"Inventory item '{result.ItemName}' removed. Its job and stock history was preserved.";
             }
+            else
+            {
+                TempData["ErrorMessage"] = "That inventory item was not found or was already removed.";
+            }
+
             return RedirectToAction(nameof(Inventory));
         }
 
@@ -291,10 +329,17 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
                 return RedirectToAction(nameof(Inventory));
             }
 
-            var item = await _context.InventoryItems.FindAsync(itemId);
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+            var item = await _context.InventoryItems
+                .AsNoTracking()
+                .SingleOrDefaultAsync(candidate => candidate.ItemID == itemId && !candidate.IsArchived);
             if (item != null)
             {
-                item.StockQuantity += quantity;
+                await _context.InventoryItems
+                    .Where(candidate => candidate.ItemID == itemId && !candidate.IsArchived)
+                    .ExecuteUpdateAsync(setters => setters.SetProperty(
+                        candidate => candidate.StockQuantity,
+                        candidate => candidate.StockQuantity + quantity));
 
                 var currentUser = await _userManager.GetUserAsync(User);
                 var performerName = currentUser?.FullName ?? "Admin User";
@@ -313,7 +358,12 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
                 });
 
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
                 TempData["SuccessMessage"] = $"Restocked {quantity} pcs of '{item.ItemName}'.";
+            }
+            else
+            {
+                await transaction.RollbackAsync();
             }
             return RedirectToAction(nameof(Inventory));
         }

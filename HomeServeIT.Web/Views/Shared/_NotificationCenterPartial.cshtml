@@ -84,7 +84,7 @@
                                         <h2 class="text-sm leading-5 text-[#17191c] @(notification.IsRead ? "font-semibold" : "font-bold")">@notification.Title</h2>
                                         @if (!notification.IsRead)
                                         {
-                                            <span class="h-2 w-2 shrink-0 rounded-full bg-[#0878f9]" aria-label="Unread"></span>
+                                            <span class="h-2 w-2 shrink-0 rounded-full bg-[#0878f9]" role="img" aria-label="Unread"></span>
                                         }
                                     </div>
                                     <p class="mt-1 max-w-3xl text-[13px] leading-5 text-[#5d6470]">@notification.Message</p>

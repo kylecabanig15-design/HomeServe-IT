@@ -1,12 +1,9 @@
-@using Microsoft.AspNetCore.Identity
-@using HomeServeIT.Web.Models
-@inject UserManager<ApplicationUser> UserManager
+@model HomeServeIT.Web.Models.ProfileViewModel
 @{
     ViewData["Title"] = "Profile and settings";
-    var user = await UserManager.GetUserAsync(User);
 }
 
-<div x-data="{ showEditProfileModal: false }" class="flex flex-col p-[32px] max-w-7xl mx-auto w-full gap-[32px]">
+<div x-data="{ showEditProfileModal: @((!ViewData.ModelState.IsValid).ToString().ToLowerInvariant()) }" class="flex flex-col p-[32px] max-w-7xl mx-auto w-full gap-[32px]">
     
     <!-- Page Header -->
     <div class="flex flex-col gap-[4px]">
@@ -39,7 +36,7 @@
             <div class="flex items-center justify-between">
                 <div class="flex flex-col">
                     <span class="font-['Inter'] font-[500] text-[13px] text-[#8a929e]">Full name</span>
-                    <span class="font-['Inter'] text-[15px] text-[#17191c] mt-[2px]">@(user?.FullName ?? "Customer")</span>
+                    <span class="font-['Inter'] text-[15px] text-[#17191c] mt-[2px]">@Model.FullName</span>
                 </div>
                 <button @@click="showEditProfileModal = true" class="font-['Inter'] font-[550] text-[14px] text-[#0878f9] hover:underline">Edit</button>
             </div>
@@ -47,7 +44,7 @@
             <div class="flex items-center justify-between">
                 <div class="flex flex-col">
                     <span class="font-['Inter'] font-[500] text-[13px] text-[#8a929e]">Email address</span>
-                    <span class="font-['Inter'] text-[15px] text-[#17191c] mt-[2px]">@(user?.Email ?? "Not provided")</span>
+                    <span class="font-['Inter'] text-[15px] text-[#17191c] mt-[2px]">@Model.Email</span>
                 </div>
                 <button @@click="showEditProfileModal = true" class="font-['Inter'] font-[550] text-[14px] text-[#0878f9] hover:underline">Edit</button>
             </div>
@@ -55,7 +52,7 @@
             <div class="flex items-center justify-between">
                 <div class="flex flex-col">
                     <span class="font-['Inter'] font-[500] text-[13px] text-[#8a929e]">Mobile number</span>
-                    <span class="font-['Inter'] text-[15px] text-[#17191c] mt-[2px]">@(user?.PhoneNumber ?? "Not provided")</span>
+                    <span class="font-['Inter'] text-[15px] text-[#17191c] mt-[2px]">@Model.Mobile</span>
                 </div>
                 <button @@click="showEditProfileModal = true" class="font-['Inter'] font-[550] text-[14px] text-[#0878f9] hover:underline">Edit</button>
             </div>
@@ -72,7 +69,7 @@
             <div class="flex items-center justify-between">
                 <div class="flex flex-col">
                     <span class="font-['Inter'] font-[500] text-[13px] text-[#8a929e]">Primary address</span>
-                    <span class="font-['Inter'] text-[15px] text-[#17191c] mt-[2px]">Not provided</span>
+                    <span class="font-['Inter'] text-[15px] text-[#17191c] mt-[2px]">@Model.Address</span>
                 </div>
                 <button @@click="showEditProfileModal = true" class="font-['Inter'] font-[550] text-[14px] text-[#0878f9] hover:underline">Edit</button>
             </div>
@@ -80,7 +77,7 @@
             <div class="flex items-center justify-between">
                 <div class="flex flex-col">
                     <span class="font-['Inter'] font-[500] text-[13px] text-[#8a929e]">City</span>
-                    <span class="font-['Inter'] text-[15px] text-[#17191c] mt-[2px]">Not provided</span>
+                    <span class="font-['Inter'] text-[15px] text-[#17191c] mt-[2px]">@Model.City</span>
                 </div>
                 <button @@click="showEditProfileModal = true" class="font-['Inter'] font-[550] text-[14px] text-[#0878f9] hover:underline">Edit</button>
             </div>
@@ -97,7 +94,7 @@
             <div class="flex items-center justify-between">
                 <div class="flex flex-col">
                     <span class="font-['Inter'] font-[500] text-[15px] text-[#17191c]">Password</span>
-                    <span class="font-['Inter'] text-[14px] text-[#5d6470] mt-[2px]">Last changed 3 months ago</span>
+                    <span class="font-['Inter'] text-[14px] text-[#5d6470] mt-[2px]">Password history is not displayed</span>
                 </div>
                 <a asp-area="Identity" asp-page="/Account/Manage/ChangePassword" class="px-[16px] py-[8px] border border-[#e7eaf0] rounded-[8px] font-['Inter'] font-[550] text-[13px] text-[#17191c] hover:bg-gray-50">Change password</a>
             </div>
@@ -105,9 +102,9 @@
             <div class="flex items-center justify-between">
                 <div class="flex flex-col">
                     <span class="font-['Inter'] font-[500] text-[15px] text-[#17191c]">Active sessions</span>
-                    <span class="font-['Inter'] text-[14px] text-[#5d6470] mt-[2px]">2 devices currently signed in</span>
+                    <span class="font-['Inter'] text-[14px] text-[#5d6470] mt-[2px]">Session management is not implemented in this prototype</span>
                 </div>
-                <button class="px-[16px] py-[8px] border border-[#e7eaf0] rounded-[8px] font-['Inter'] font-[550] text-[13px] text-[#17191c] hover:bg-gray-50">Manage sessions</button>
+                <button type="button" disabled class="px-4 py-2 border rounded-lg text-slate-600">Manage sessions (unavailable)</button>
             </div>
         </div>
     </div>
@@ -115,14 +112,14 @@
     <!-- Notification Preferences Card -->
     <div class="bg-white border border-[#e7eaf0] rounded-[12px] shadow-sm overflow-hidden flex flex-col">
         <div class="px-[20px] py-[16px] border-b border-[#e7eaf0] bg-gray-50/50">
-            <span class="font-['Inter'] font-[600] text-[15px] text-[#17191c]">Notification preferences</span>
+            <span class="font-['Inter'] font-[600] text-[15px] text-[#17191c]">Notification preferences (demo only; changes are not saved)</span>
         </div>
         <div class="flex flex-col p-[20px] gap-[20px]">
             <!-- Preference 1 -->
             <div class="flex items-center justify-between">
                 <span class="font-['Inter'] text-[15px] text-[#17191c]">Appointment reminders</span>
                 <label class="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" value="" class="sr-only peer" checked>
+                  <input type="checkbox" disabled aria-label="Appointment reminders (demo only)" class="sr-only peer" checked>
                   <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 </label>
             </div>
@@ -130,7 +127,7 @@
             <div class="flex items-center justify-between">
                 <span class="font-['Inter'] text-[15px] text-[#17191c]">Quotation updates</span>
                 <label class="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" value="" class="sr-only peer" checked>
+                  <input type="checkbox" disabled aria-label="Quotation updates (demo only)" class="sr-only peer" checked>
                   <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 </label>
             </div>
@@ -138,7 +135,7 @@
             <div class="flex items-center justify-between">
                 <span class="font-['Inter'] text-[15px] text-[#17191c]">Invoice and payment confirmations</span>
                 <label class="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" value="" class="sr-only peer" checked>
+                  <input type="checkbox" disabled aria-label="Invoice and payment confirmations (demo only)" class="sr-only peer" checked>
                   <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 </label>
             </div>
@@ -146,7 +143,7 @@
             <div class="flex items-center justify-between">
                 <span class="font-['Inter'] text-[15px] text-[#17191c]">Promotional and service tips</span>
                 <label class="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" value="" class="sr-only peer">
+                  <input type="checkbox" disabled aria-label="Promotional and service tips (demo only)" class="sr-only peer">
                   <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 </label>
             </div>
@@ -160,7 +157,7 @@
     </form>
 
     <!-- Edit Profile Modal -->
-    <div x-show="showEditProfileModal" style="display: none;" class="relative z-[100]" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div x-show="showEditProfileModal" style="display: none;" class="relative z-[100]" aria-labelledby="modal-title-1" role="dialog" aria-modal="true">
         <div x-show="showEditProfileModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 bg-gray-500/75 backdrop-blur-sm transition-opacity"></div>
         <div class="fixed inset-0 z-10 overflow-y-auto">
             <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
@@ -168,32 +165,33 @@
                     <div class="bg-white px-6 pb-6 pt-6">
                         <div class="sm:flex sm:items-start">
                             <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                                <h3 class="text-[20px] font-bold leading-6 text-[#17191c]" id="modal-title">Edit Profile</h3>
+                                <h3 class="text-[20px] font-bold leading-6 text-[#17191c]" id="modal-title-1">Edit Profile</h3>
                                 <div class="mt-2">
                                     <p class="text-[14px] text-[#5d6470]">Update your personal information and service address.</p>
                                 </div>
                                 <form method="post" asp-action="UpdateProfile" asp-controller="ProfileAndSettings" asp-area="Customer" class="mt-6">
+                                    <div asp-validation-summary="All" class="text-red-700" role="alert"></div>
                                     <div class="space-y-4">
                                         <div>
                                             <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Full name</label>
-                                            <input type="text" name="fullName" value="@(user?.FullName)" required class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" />
+                                            <input type="text" asp-for="FullName" required class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" />
                                         </div>
                                         <div>
                                             <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Email address</label>
-                                            <input type="email" name="email" value="@(user?.Email)" required class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" />
+                                            <input type="email" asp-for="Email" required class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" />
                                         </div>
                                         <div>
                                             <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Mobile number</label>
-                                            <input type="text" name="mobile" value="@(user?.PhoneNumber)" class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" />
+                                            <input type="text" asp-for="Mobile" class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" />
                                         </div>
                                         <hr class="border-[#e7eaf0] my-4" />
                                         <div>
                                             <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Primary address</label>
-                                            <input type="text" name="address" placeholder="Enter your address" class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" />
+                                            <input type="text" asp-for="Address" placeholder="Enter your address" class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" />
                                         </div>
                                         <div>
                                             <label class="block text-sm font-semibold text-[#17191c] mb-1.5">City</label>
-                                            <input type="text" name="city" placeholder="Enter your city" class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" />
+                                            <input type="text" asp-for="City" placeholder="Enter your city" class="block w-full px-3 py-2 border border-[#e7eaf0] rounded-lg focus:ring-2 focus:ring-[#0878f9]/20 focus:border-[#0878f9] outline-none text-[14px]" />
                                         </div>
                                     </div>
                                     <div class="mt-8 flex items-center justify-end gap-3">
@@ -209,3 +207,7 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

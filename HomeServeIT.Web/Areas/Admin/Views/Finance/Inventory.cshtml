@@ -43,6 +43,19 @@
             </button>
         </div>
     </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div role="status" class="mt-6 w-full rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+            @TempData["SuccessMessage"]
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div role="alert" class="mt-6 w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
+            @TempData["ErrorMessage"]
+        </div>
+    }
     
     <!-- Low Stock Alert -->
     @if (lowStockItems.Any())
@@ -103,7 +116,7 @@
                     var serializedItem = System.Text.Json.JsonSerializer.Serialize(item);
 
                     <tr class="hover:bg-blue-50/30 transition-colors group">
-                        <td class="py-4 px-6 cursor-pointer" @@click="activeItem = @serializedItem; showDetailModal = true">
+                        <td class="py-4 px-6 cursor-pointer" data-item="@serializedItem" @@click="activeItem = JSON.parse($el.dataset.item); showDetailModal = true">
                             <div class="flex items-center gap-4">
                                 <div class="w-12 h-12 rounded-[10px] bg-gray-100 border border-[#e7eaf0] flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
                                     @if (!string.IsNullOrEmpty(item.ImageUrl))
@@ -156,13 +169,13 @@
                         </td>
                         <td class="py-4 px-6 text-right">
                             <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button @@click="restockItemId = @item.ItemID; restockItemName = '@item.ItemName'; showRestockModal = true" class="p-2 text-[#0878f9] hover:bg-blue-50 rounded-lg transition-colors tooltip" title="Restock">
+                                <button data-item-id="@item.ItemID" data-item-name="@item.ItemName" @@click="restockItemId = $el.dataset.itemId; restockItemName = $el.dataset.itemName; showRestockModal = true" class="p-2 text-[#0878f9] hover:bg-blue-50 rounded-lg transition-colors tooltip" title="Restock">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
                                 </button>
-                                <button @@click="editItem = @serializedItem; showEditModal = true" class="p-2 text-[#5d6470] hover:bg-gray-100 rounded-lg transition-colors tooltip" title="Edit">
+                                <button data-item="@serializedItem" @@click="editItem = JSON.parse($el.dataset.item); showEditModal = true" class="p-2 text-[#5d6470] hover:bg-gray-100 rounded-lg transition-colors tooltip" title="Edit">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                                 </button>
-                                <button @@click="deleteItemId = @item.ItemID; deleteItemName = '@item.ItemName'; showDeleteModal = true" class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors tooltip" title="Delete">
+                                <button type="button" data-item-id="@item.ItemID" data-item-name="@item.ItemName" @@click="deleteItemId = $el.dataset.itemId; deleteItemName = $el.dataset.itemName; showDeleteModal = true" class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors tooltip" title="Remove from inventory">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                                 </button>
                             </div>
@@ -422,8 +435,8 @@
                     <div class="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mb-4 text-red-500">
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                     </div>
-                    <h3 class="font-['Inter'] font-bold text-[#17191c] text-[18px]">Delete Item</h3>
-                    <p class="font-['Inter'] text-[14px] text-[#5d6470] mt-2 mb-6">Are you sure you want to delete <span class="font-bold text-[#17191c]" x-text="deleteItemName"></span>? This action cannot be undone.</p>
+                    <h3 class="font-['Inter'] font-bold text-[#17191c] text-[18px]">Remove material?</h3>
+                    <p class="font-['Inter'] text-[14px] text-[#5d6470] mt-2 mb-6">Remove <span class="font-bold text-[#17191c]" x-text="deleteItemName"></span> from active inventory? Existing job allocations and stock history will be preserved.</p>
                     
                     <form asp-area="Admin" asp-controller="Finance" asp-action="DeleteInventoryItem" method="post" class="w-full flex gap-3">
                         @Html.AntiForgeryToken()
@@ -432,7 +445,7 @@
                             Cancel
                         </button>
                         <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 transition-colors text-white font-['Inter'] font-semibold text-[14px] h-[44px] rounded-[10px] shadow-md">
-                            Delete Item
+                            Remove material
                         </button>
                     </form>
                 </div>

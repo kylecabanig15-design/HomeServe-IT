@@ -1,0 +1,13 @@
+<Project>
+  <!--
+    .NET SDK 10.0.300/10.0.400 returns IntermediateOutputPath with a Windows
+    separator when dotnet-watch evaluates projects on macOS. The build itself
+    normalizes that value, but dotnet-watch does not, so browser refresh looks
+    for obj\Debug instead of obj/Debug. Set this early for POSIX builds until
+    the upstream dotnet-watch normalization fix is available in the installed SDK.
+  -->
+  <PropertyGroup Condition="'$(OS)' != 'Windows_NT'">
+    <IntermediateOutputPath Condition="'$(Configuration)' == ''">obj/Debug/</IntermediateOutputPath>
+    <IntermediateOutputPath Condition="'$(Configuration)' != ''">obj/$(Configuration)/</IntermediateOutputPath>
+  </PropertyGroup>
+</Project>

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 using HomeServeIT.Web.Constants;
 using HomeServeIT.Web.Data;
 using HomeServeIT.Web.Models;
@@ -17,12 +18,18 @@ namespace HomeServeIT.Web.Areas.Technician.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IWebHostEnvironment _env;
+        private readonly JobInventoryService _jobInventoryService;
 
-        public AssignedJobsController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IWebHostEnvironment env)
+        public AssignedJobsController(
+            ApplicationDbContext context,
+            UserManager<ApplicationUser> userManager,
+            IWebHostEnvironment env,
+            JobInventoryService jobInventoryService)
         {
             _context = context;
             _userManager = userManager;
             _env = env;
+            _jobInventoryService = jobInventoryService;
         }
 
         public async Task<IActionResult> Index(int? jobId = null, string? tab = null)
@@ -46,8 +53,20 @@ namespace HomeServeIT.Web.Areas.Technician.Controllers
                 CompletedJobs = allJobs.Where(j => j.Status == "Completed").ToList()
             };
 
+            var jobIds = allJobs.Select(job => job.RequestID).ToList();
+            var financialRecords = await _context.Invoices.AsNoTracking().ActiveFinancialRecords()
+                .Where(invoice => jobIds.Contains(invoice.RequestID))
+                .Select(invoice => new { invoice.RequestID, invoice.IsQuotation, invoice.QuotationStatus, invoice.PaymentStatus })
+                .ToListAsync();
+            vm.QuotedRequestIds = financialRecords.Select(invoice => invoice.RequestID).ToHashSet();
+            vm.PaidRequestIds = financialRecords.Where(invoice => invoice.PaymentStatus == "Paid"
+                && (!invoice.IsQuotation || invoice.QuotationStatus is "ApprovedByAdmin" or "Approved"))
+                .Select(invoice => invoice.RequestID).ToHashSet();
+            vm.PendingReviewRequestIds = financialRecords.Where(invoice => invoice.IsQuotation && invoice.QuotationStatus == "PendingAdmin")
+                .Select(invoice => invoice.RequestID).ToHashSet();
+
             ViewBag.InventoryItems = await _context.InventoryItems
-                .Where(i => i.StockQuantity > 0)
+                .Where(i => !i.IsArchived && i.StockQuantity > 0)
                 .OrderBy(i => i.Category)
                 .ThenBy(i => i.ItemName)
                 .ToListAsync();
@@ -69,53 +88,50 @@ namespace HomeServeIT.Web.Areas.Technician.Controllers
 
             if (tech == null) return NotFound();
 
-            var request = await _context.ServiceRequests
-                .ActionableTechnicianAssignments(tech.TechID)
-                .FirstOrDefaultAsync(r => r.RequestID == requestId);
-            if (request == null) return NotFound();
-
-            var allowedStatuses = new[] { "Diagnosing", "In Progress", "PendingCustomerReview", "Completed", "PendingAdminApproval", "Pending" };
-            if (string.IsNullOrWhiteSpace(status) || !allowedStatuses.Contains(status))
+            if (status != "In Progress")
             {
                 TempData["ErrorMessage"] = "Invalid status value.";
                 return RedirectToAction(nameof(Index));
             }
 
-            if (status is "In Progress" or "PendingCustomerReview" or "Completed"
-                && !await _context.Invoices.HasPaidInvoiceAsync(requestId))
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+            var request = await _context.ServiceRequests
+                .ActionableTechnicianAssignments(tech.TechID)
+                .FirstOrDefaultAsync(r => r.RequestID == requestId);
+            if (request == null)
             {
-                TempData["ErrorMessage"] = "This job cannot start or be completed until its approved invoice has been paid.";
+                await transaction.RollbackAsync();
+                return NotFound();
+            }
+
+            if (request.Status != "Pending")
+            {
+                TempData["ErrorMessage"] = "This job cannot change to that state. Submit repair proof for customer sign-off to finish the job.";
+                return RedirectToAction(nameof(Index), new { jobId = requestId, tab = "workflow" });
+            }
+
+            if (!await _context.Invoices.HasPaidInvoiceAsync(requestId))
+            {
+                await transaction.RollbackAsync();
+                TempData["ErrorMessage"] = "This job cannot start until its approved invoice has been paid.";
                 return RedirectToAction(nameof(Index), new { jobId = requestId });
             }
 
-            if (status == "In Progress")
+            var inventoryResult = await _jobInventoryService.DeductForJobStartAsync(
+                requestId,
+                user?.FullName ?? user?.Email ?? $"Technician #{tech.TechID}");
+            if (!inventoryResult.Succeeded)
             {
-                var inventoryError = await JobInventoryService.DeductForJobStartAsync(_context, requestId);
-                if (inventoryError != null)
-                {
-                    TempData["ErrorMessage"] = inventoryError;
-                    return RedirectToAction(nameof(Index));
-                }
+                await transaction.RollbackAsync();
+                TempData["ErrorMessage"] = inventoryResult.ErrorMessage;
+                return RedirectToAction(nameof(Index));
             }
 
-            if (status == "Completed")
-            {
-                bool checklistComplete = request.Check1_Diagnostic && request.Check2_Hardware &&
-                                         request.Check3_Firmware && request.Check4_QA && request.Check5_Handover;
-                if (!checklistComplete)
-                {
-                    TempData["ErrorMessage"] = "You must complete the entire job checklist before marking this job as Completed.";
-                    return RedirectToAction(nameof(Index));
-                }
-                request.CompletedDate = DateTime.UtcNow;
-            }
-            else
-            {
-                request.CompletedDate = null;
-            }
+            request.CompletedDate = null;
 
             request.Status = status;
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
 
             TempData["SuccessMessage"] = $"Job {requestId} status updated to {status}.";
             return RedirectToAction(nameof(Index), new { jobId = requestId, tab = "workflow" });
@@ -158,24 +174,28 @@ namespace HomeServeIT.Web.Areas.Technician.Controllers
             var tech = await _context.Technicians.FirstOrDefaultAsync(t => t.UserID == user!.Id);
             if (tech == null) return Forbid();
 
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             var job = await _context.ServiceRequests
                 .ActionableTechnicianAssignments(tech.TechID)
                 .FirstOrDefaultAsync(r => r.RequestID == requestId);
             if (job == null) return NotFound();
-            if (job.Status == "Cancelled")
+            if (job.Status is not ("Pending" or "Diagnosing")
+                || await _context.Invoices.ActiveFinancialRecords().AnyAsync(invoice => invoice.RequestID == requestId))
             {
-                TempData["ErrorMessage"] = "This service was cancelled, so a quotation can no longer be submitted.";
+                TempData["ErrorMessage"] = "A quotation can only be created before review, payment, or repair begins.";
                 return RedirectToAction(nameof(Index));
             }
 
-            if (itemIds.Length == 0 || itemIds.Length != quantities.Length)
+            if (!ModelState.IsValid || itemIds.Length != quantities.Length || quantities.Any(quantity => quantity <= 0) || itemIds.Any(id => id <= 0) || laborAmount < 0)
             {
-                TempData["ErrorMessage"] = "Select at least one in-stock part and quantity.";
+                TempData["ErrorMessage"] = "Enter valid labor and completion details. Parts are optional; added parts need a positive quantity.";
                 return RedirectToAction(nameof(Index));
             }
 
             var requested = itemIds.Zip(quantities).Where(x => x.Second > 0).GroupBy(x => x.First).ToDictionary(g => g.Key, g => g.Sum(x => x.Second));
-            var items = await _context.InventoryItems.Where(i => requested.Keys.Contains(i.ItemID)).ToListAsync();
+            var items = await _context.InventoryItems
+                .Where(i => !i.IsArchived && requested.Keys.Contains(i.ItemID))
+                .ToListAsync();
             if (items.Count != requested.Count || items.Any(i => requested[i.ItemID] > i.StockQuantity) || laborAmount < 0)
             {
                 TempData["ErrorMessage"] = "One or more selected quantities exceed available stock.";
@@ -220,9 +240,10 @@ namespace HomeServeIT.Web.Areas.Technician.Controllers
                 UnitPrice = i.UnitPrice
             }));
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
 
             TempData["SuccessMessage"] = "Quotation sent to Admin for approval.";
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction(nameof(Index), new { jobId = requestId, tab = "workflow" });
         }
 
         [HttpGet]
@@ -265,6 +286,7 @@ namespace HomeServeIT.Web.Areas.Technician.Controllers
             var tech = await _context.Technicians.FirstOrDefaultAsync(t => t.UserID == user!.Id);
             if (tech == null) return Forbid();
 
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             var quotation = await _context.Invoices
                 .Include(i => i.ServiceRequest)
                 .FirstOrDefaultAsync(i => i.InvoiceID == invoiceId
@@ -280,14 +302,16 @@ namespace HomeServeIT.Web.Areas.Technician.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            if (itemIds.Length == 0 || itemIds.Length != quantities.Length || laborAmount < 0)
+            if (!ModelState.IsValid || itemIds.Length != quantities.Length || quantities.Any(quantity => quantity <= 0) || itemIds.Any(id => id <= 0) || laborAmount < 0)
             {
-                TempData["ErrorMessage"] = "Select at least one valid inventory item.";
+                TempData["ErrorMessage"] = "Enter valid labor and completion details. Parts are optional; added parts need a positive quantity.";
                 return RedirectToAction(nameof(Index));
             }
 
             var requested = itemIds.Zip(quantities).Where(x => x.Second > 0).GroupBy(x => x.First).ToDictionary(g => g.Key, g => g.Sum(x => x.Second));
-            var items = await _context.InventoryItems.Where(i => requested.Keys.Contains(i.ItemID)).ToListAsync();
+            var items = await _context.InventoryItems
+                .Where(i => !i.IsArchived && requested.Keys.Contains(i.ItemID))
+                .ToListAsync();
             if (items.Count != requested.Count || items.Any(i => requested[i.ItemID] > i.StockQuantity))
             {
                 TempData["ErrorMessage"] = "One or more selected quantities exceed available stock.";
@@ -308,22 +332,37 @@ namespace HomeServeIT.Web.Areas.Technician.Controllers
             _context.JobInventoryUsages.AddRange(items.Select(i => new JobInventoryUsage { RequestID = quotation.RequestID, ItemID = i.ItemID, Quantity = requested[i.ItemID], UnitPrice = i.UnitPrice }));
 
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
             TempData["SuccessMessage"] = "Quotation updated and resubmitted for admin review.";
             return RedirectToAction(nameof(Index), new { jobId = quotation.RequestID });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UploadDeliverable(int requestId, string phase, string description, IFormFile? imageFile)
+        [RequestSizeLimit(PrivateUploadService.MaxRequestBytes)]
+        [RequestFormLimits(MultipartBodyLengthLimit = PrivateUploadService.MaxRequestBytes)]
+        public async Task<IActionResult> UploadDeliverable(int requestId, string phase, string description, IFormFile? imageFile, [FromServices] PrivateUploadService uploads)
         {
+            if (phase is not ("Diagnosis" or "FinalProof") || string.IsNullOrWhiteSpace(description)) return BadRequest();
             var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Challenge();
             var tech = await _context.Technicians.FirstOrDefaultAsync(t => t.UserID == user!.Id);
             if (tech == null) return Forbid();
 
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             var job = await _context.ServiceRequests
                 .ActionableTechnicianAssignments(tech.TechID)
                 .FirstOrDefaultAsync(r => r.RequestID == requestId);
             if (job == null) return NotFound();
+
+            if ((phase == "FinalProof" && (job.Status != "In Progress"
+                    || !job.Check1_Diagnostic || !job.Check2_Hardware || !job.Check3_Firmware || !job.Check4_QA || !job.Check5_Handover
+                    || imageFile == null || imageFile.Length == 0))
+                || (phase == "Diagnosis" && job.Status is not ("Pending" or "Diagnosing")))
+            {
+                TempData["ErrorMessage"] = "Complete the repair checklist and attach proof while the job is in progress before requesting customer sign-off.";
+                return RedirectToAction(nameof(Index), new { jobId = requestId, tab = "workflow" });
+            }
 
             if (phase == "FinalProof" && !await _context.Invoices.HasPaidInvoiceAsync(requestId))
             {
@@ -331,28 +370,15 @@ namespace HomeServeIT.Web.Areas.Technician.Controllers
                 return RedirectToAction(nameof(Index), new { jobId = requestId });
             }
 
-            string? imagePath = null;
-            if (imageFile != null && imageFile.Length > 0)
+            StoredUpload? stored;
+            try { stored = await uploads.StoreAsync(imageFile, "deliverables", HttpContext.RequestAborted); }
+            catch (UploadValidationException ex)
             {
-                string uploadsFolder = Path.Combine(_env.WebRootPath, "uploads", "deliverables");
-                Directory.CreateDirectory(uploadsFolder);
-
-                var ext = Path.GetExtension(imageFile.FileName).ToLowerInvariant();
-                var allowedExts = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf" };
-                if (!allowedExts.Contains(ext))
-                {
-                    TempData["ErrorMessage"] = "Unsupported file type.";
-                    return RedirectToAction(nameof(Index));
-                }
-
-                string uniqueFileName = Guid.NewGuid().ToString() + ext;
-                string filePath = Path.Combine(uploadsFolder, uniqueFileName);
-                using (var fileStream = new FileStream(filePath, FileMode.Create))
-                {
-                    await imageFile.CopyToAsync(fileStream);
-                }
-                imagePath = "/uploads/deliverables/" + uniqueFileName;
+                TempData["ErrorMessage"] = ex.Message;
+                return RedirectToAction(nameof(Index));
             }
+            await using var upload = stored;
+            var imagePath = upload?.Url;
 
             var deliverable = new JobDeliverable
             {
@@ -374,8 +400,10 @@ namespace HomeServeIT.Web.Areas.Technician.Controllers
             }
 
             await _context.SaveChangesAsync();
-            TempData["SuccessMessage"] = "Deliverable uploaded successfully.";
-            return RedirectToAction(nameof(Index));
+            await transaction.CommitAsync();
+            upload?.Complete();
+            TempData["SuccessMessage"] = phase == "FinalProof" ? "Proof submitted. Awaiting customer sign-off." : "Diagnosis uploaded successfully.";
+            return RedirectToAction(nameof(Index), new { jobId = requestId, tab = "workflow" });
         }
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -386,10 +414,12 @@ namespace HomeServeIT.Web.Areas.Technician.Controllers
 
             if (tech == null) return NotFound();
 
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             var job = await _context.ServiceRequests
                 .ActionableTechnicianAssignments(tech.TechID)
                 .FirstOrDefaultAsync(r => r.RequestID == requestId);
             if (job == null) return NotFound();
+            if (job.Status != "In Progress") return BadRequest("The checklist can only change while repair is in progress.");
 
             job.Check1_Diagnostic = c1;
             job.Check2_Hardware = c2;
@@ -398,6 +428,7 @@ namespace HomeServeIT.Web.Areas.Technician.Controllers
             job.Check5_Handover = c5;
 
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
             return Ok(new { success = true });
         }
     }

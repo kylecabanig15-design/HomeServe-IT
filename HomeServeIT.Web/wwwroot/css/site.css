@@ -985,6 +985,8 @@
   }
 
   .premium-date-trigger.has-value .premium-date-trigger__value {
+    flex-wrap: wrap;
+    overflow: visible;
     color: #17191c;
     font-weight: 650;
   }

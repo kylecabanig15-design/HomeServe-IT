@@ -32,6 +32,7 @@ namespace HomeServeIT.Web.Areas.Identity.Pages.Account
         private readonly ILogger<RegisterModel> _logger;
         private readonly IEmailSender _emailSender;
         private readonly ApplicationDbContext _context;
+        private readonly HomeServeIT.Web.Services.ApplicationSettingsService _settings;
 
         public RegisterModel(
             UserManager<ApplicationUser> userManager,
@@ -39,7 +40,8 @@ namespace HomeServeIT.Web.Areas.Identity.Pages.Account
             SignInManager<ApplicationUser> signInManager,
             ILogger<RegisterModel> logger,
             IEmailSender emailSender,
-            ApplicationDbContext context)
+            ApplicationDbContext context,
+            HomeServeIT.Web.Services.ApplicationSettingsService settings)
         {
             _userManager = userManager;
             _userStore = userStore;
@@ -48,6 +50,7 @@ namespace HomeServeIT.Web.Areas.Identity.Pages.Account
             _logger = logger;
             _emailSender = emailSender;
             _context = context;
+            _settings = settings;
         }
 
         /// <summary>
@@ -68,6 +71,7 @@ namespace HomeServeIT.Web.Areas.Identity.Pages.Account
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public IList<AuthenticationScheme> ExternalLogins { get; set; }
+        public bool RegistrationAllowed { get; private set; } = true;
 
         /// <summary>
         ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
@@ -141,12 +145,19 @@ namespace HomeServeIT.Web.Areas.Identity.Pages.Account
         {
             ReturnUrl = returnUrl;
             ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
+            RegistrationAllowed = (await _settings.GetAsync(HttpContext.RequestAborted)).AllowPublicRegistration;
         }
 
         public async Task<IActionResult> OnPostAsync(string returnUrl = null)
         {
             returnUrl ??= Url.Content("~/");
             ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
+            RegistrationAllowed = (await _settings.GetAsync(HttpContext.RequestAborted)).AllowPublicRegistration;
+            if (!RegistrationAllowed)
+            {
+                ModelState.AddModelError(string.Empty, "Public registration is currently disabled. Contact an administrator if you need an account.");
+                return Page();
+            }
             if (ModelState.IsValid)
             {
                 var user = CreateUser();
@@ -162,40 +173,14 @@ namespace HomeServeIT.Web.Areas.Identity.Pages.Account
 
                 await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
                 await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
-                var result = await _userManager.CreateAsync(user, Input.Password);
+                var result = await new HomeServeIT.Web.Services.AccountProfileService(_context, _userManager)
+                    .CreateAsync(user, HomeServeIT.Web.Constants.Roles.Customer, Input.Password);
 
                 if (result.Succeeded)
                 {
                     _logger.LogInformation("User created a new account with password.");
 
-                    // Automatically assign the Customer role to all users who sign up through the public form
-                    await _userManager.AddToRoleAsync(user, HomeServeIT.Web.Constants.Roles.Customer);
-
-                    var userId = await _userManager.GetUserIdAsync(user);
-
-                    // Auto-create CRM profile for this new customer
-                    var nameParts = Input.FullName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>();
-                    var firstName = nameParts.Length > 0 ? nameParts[0] : "Unknown";
-                    var lastName = nameParts.Length > 1 ? string.Join(" ", nameParts.Skip(1)) : "Unknown";
-
-                    var addressParts = new List<string>();
-                    if (!string.IsNullOrWhiteSpace(Input.StreetAddress)) addressParts.Add(Input.StreetAddress);
-                    if (!string.IsNullOrWhiteSpace(Input.BarangayCity)) addressParts.Add(Input.BarangayCity);
-                    if (!string.IsNullOrWhiteSpace(Input.Landmark)) addressParts.Add($"({Input.Landmark})");
-                    var homeAddress = string.Join(", ", addressParts);
-                    if (string.IsNullOrWhiteSpace(homeAddress)) homeAddress = "Unknown";
-
-                    var customer = new HomeServeIT.Web.Models.Customer
-                    {
-                        UserID = userId,
-                        FirstName = firstName,
-                        LastName = lastName,
-                        PhoneNumber = Input.PhoneNumber ?? string.Empty,
-                        HomeAddress = homeAddress
-                    };
-                    _context.Customers.Add(customer);
-                    await _context.SaveChangesAsync();
-
+                    var userId = user.Id;
                     var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
                     code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
                     var callbackUrl = Url.Page(

@@ -48,7 +48,7 @@
                 <p class="font-['Inter'] font-[550] text-[#5d6470] text-[14px]">Revenue (Last 30 days)</p>
             </div>
             <p class="font-['Inter'] font-bold text-[#17191c] text-[32px] mt-3">@Model.RevenueLast30Days.ToString("C0", new System.Globalization.CultureInfo("en-PH"))</p>
-            <p class="font-['Inter'] text-[13px] @(Model.RevenueGrowthPercentage >= 0 ? "text-[#178a4b]" : "text-red-600") font-medium mt-1">
+            <p class="font-['Inter'] text-[13px] @(Model.RevenueGrowthPercentage >= 0 ? "text-green-800" : "text-red-700") font-medium mt-1">
                 @(Model.RevenueGrowthPercentage >= 0 ? "+" : "")@Model.RevenueGrowthPercentage% vs last month
             </p>
         </div>
@@ -60,7 +60,7 @@
                 <p class="font-['Inter'] font-[550] text-[#5d6470] text-[14px]">Jobs completed</p>
             </div>
             <p class="font-['Inter'] font-bold text-[#17191c] text-[32px] mt-3">@Model.TotalJobsCompleted</p>
-            <p class="font-['Inter'] text-[13px] @(Model.JobsCompletedGrowthPercentage >= 0 ? "text-[#178a4b]" : "text-red-600") font-medium mt-1">
+            <p class="font-['Inter'] text-[13px] @(Model.JobsCompletedGrowthPercentage >= 0 ? "text-green-800" : "text-red-700") font-medium mt-1">
                 @(Model.JobsCompletedGrowthPercentage >= 0 ? "+" : "")@Model.JobsCompletedGrowthPercentage% vs last month
             </p>
         </div>
@@ -69,10 +69,10 @@
                 <div class="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 </div>
-                <p class="font-['Inter'] font-[550] text-[#5d6470] text-[14px]">Avg. resolution time</p>
+                <p class="font-['Inter'] font-[550] text-[#5d6470] text-[14px]" title="Elapsed calendar days from scheduled service to completion. Invalid or missing dates are excluded.">Avg. scheduled-to-completion time</p>
             </div>
             <p class="font-['Inter'] font-bold text-[#17191c] text-[32px] mt-3">@Model.AvgResolutionTimeDays days</p>
-            <p class="font-['Inter'] text-[13px] @(Model.ResolutionTimeChangeDays <= 0 ? "text-[#178a4b]" : "text-red-600") font-medium mt-1">
+            <p class="font-['Inter'] text-[13px] @(Model.ResolutionTimeChangeDays <= 0 ? "text-green-800" : "text-red-700") font-medium mt-1">
                 @(Model.ResolutionTimeChangeDays > 0 ? "+" : "")@Model.ResolutionTimeChangeDays days vs last month
             </p>
         </div>
@@ -84,7 +84,7 @@
         <div class="bg-white border border-[#e7eaf0] rounded-[16px] p-[24px] shadow-sm flex flex-col h-full">
             <div class="flex items-center justify-between w-full">
                 <p class="font-['Inter'] font-semibold text-[#17191c] text-[16px]">Revenue Trend</p>
-                <select class="ui-select !min-h-[34px] !w-auto py-1 text-[12px] font-medium">
+                <select aria-label="Revenue reporting period" class="ui-select !min-h-[34px] !w-auto py-1 text-[12px] font-medium">
                     <option>Last 6 months</option>
                     <option>This year</option>
                 </select>

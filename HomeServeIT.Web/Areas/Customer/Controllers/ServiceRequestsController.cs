@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 using HomeServeIT.Web.Constants;
 using HomeServeIT.Web.Data;
 using HomeServeIT.Web.Models;
@@ -17,12 +18,18 @@ public class ServiceRequestsController : Controller
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IWebHostEnvironment _env;
+    private readonly JobInventoryService _jobInventoryService;
 
-    public ServiceRequestsController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IWebHostEnvironment env)
+    public ServiceRequestsController(
+        ApplicationDbContext context,
+        UserManager<ApplicationUser> userManager,
+        IWebHostEnvironment env,
+        JobInventoryService jobInventoryService)
     {
         _context = context;
         _userManager = userManager;
         _env = env;
+        _jobInventoryService = jobInventoryService;
     }
 
     public async Task<IActionResult> Index(int? jobId, string? tab, string? open, string? filter)
@@ -76,12 +83,14 @@ public class ServiceRequestsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(
+    [RequestSizeLimit(PrivateUploadService.MaxRequestBytes)]
+        [RequestFormLimits(MultipartBodyLengthLimit = PrivateUploadService.MaxRequestBytes)]
+        public async Task<IActionResult> Create(
         string issueDescription,
         DateTime scheduledDate,
         string? serviceCategory,
         string? priority,
-        IFormFile? image)
+        IFormFile? image, [FromServices] PrivateUploadService uploads)
     {
         var user = await _userManager.GetUserAsync(User);
         if (user == null) return RedirectToAction("Login", "Account", new { area = "" });
@@ -118,24 +127,15 @@ public class ServiceRequestsController : Controller
 
         if (!string.IsNullOrWhiteSpace(issueDescription))
         {
-            string? imagePath = null;
-
-            if (image != null && image.Length > 0)
+            StoredUpload? stored;
+            try { stored = await uploads.StoreAsync(image, "service-requests", HttpContext.RequestAborted); }
+            catch (UploadValidationException ex)
             {
-                var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "service-requests");
-                Directory.CreateDirectory(uploadsDir);
-
-                var ext = Path.GetExtension(image.FileName).ToLowerInvariant();
-                var allowedExts = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
-                if (allowedExts.Contains(ext))
-                {
-                    var fileName = $"{Guid.NewGuid()}{ext}";
-                    var filePath = Path.Combine(uploadsDir, fileName);
-                    using var stream = new FileStream(filePath, FileMode.Create);
-                    await image.CopyToAsync(stream);
-                    imagePath = $"/uploads/service-requests/{fileName}";
-                }
+                TempData["ErrorMessage"] = ex.Message;
+                return RedirectToAction(nameof(Index));
             }
+            await using var upload = stored;
+            var imagePath = upload?.Url;
 
             var request = new ServiceRequest
             {
@@ -150,6 +150,7 @@ public class ServiceRequestsController : Controller
 
             _context.ServiceRequests.Add(request);
             await _context.SaveChangesAsync();
+            upload?.Complete();
             TempData["SuccessMessage"] = "Your service request has been successfully submitted.";
         }
 
@@ -215,28 +216,44 @@ public class ServiceRequestsController : Controller
         var customer = await _context.Customers.FirstOrDefaultAsync(c => c.UserID == user.Id);
         if (customer == null) return Forbid();
 
+        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
         var invoice = await _context.Invoices
             .Include(i => i.ServiceRequest)
             .FirstOrDefaultAsync(i => i.InvoiceID == invoiceId
                                       && i.ServiceRequest != null
                                       && i.ServiceRequest.CustomerID == customer.CustomerID
                                       && (!i.IsQuotation || i.QuotationStatus == "ApprovedByAdmin" || i.QuotationStatus == "Approved"));
-        if (invoice != null)
+        if (invoice == null)
         {
-            var inventoryError = await JobInventoryService.DeductForJobStartAsync(_context, invoice.RequestID);
-            if (inventoryError != null)
-            {
-                TempData["ErrorMessage"] = inventoryError;
-                return RedirectToAction(nameof(Index));
-            }
-            invoice.PaymentStatus = "Paid";
-            if (invoice.ServiceRequest != null)
-            {
-                invoice.ServiceRequest.Status = "In Progress";
-            }
-            await _context.SaveChangesAsync();
-            TempData["SuccessMessage"] = "Payment successful! The technician will now begin the work.";
+            await transaction.RollbackAsync();
+            TempData["ErrorMessage"] = "The invoice could not be found or is not available for payment.";
+            return RedirectToAction(nameof(Index));
         }
+
+        if (invoice.PaymentStatus == "Paid")
+        {
+            await transaction.CommitAsync();
+            TempData["SuccessMessage"] = "This invoice has already been paid.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var inventoryResult = await _jobInventoryService.DeductForJobStartAsync(
+            invoice.RequestID,
+            user.FullName ?? user.Email ?? "Customer");
+        if (!inventoryResult.Succeeded)
+        {
+            await transaction.RollbackAsync();
+            TempData["ErrorMessage"] = inventoryResult.ErrorMessage;
+            return RedirectToAction(nameof(Index));
+        }
+
+        invoice.PaymentStatus = "Paid";
+        if (invoice.ServiceRequest.Status is not "Completed" and not "Cancelled")
+            invoice.ServiceRequest.Status = "In Progress";
+
+        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
+        TempData["SuccessMessage"] = "Payment successful! The technician will now begin the work.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -249,18 +266,28 @@ public class ServiceRequestsController : Controller
         var customer = await _context.Customers.FirstOrDefaultAsync(c => c.UserID == user.Id);
         if (customer == null) return Forbid();
 
+        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var job = await _context.ServiceRequests
             .FirstOrDefaultAsync(r => r.RequestID == requestId && r.CustomerID == customer.CustomerID);
         if (job == null || job.Status != "PendingCustomerReview")
         {
+            await transaction.RollbackAsync();
             TempData["ErrorMessage"] = "This service is not currently awaiting your review.";
             return RedirectToAction(nameof(Index));
         }
 
         if (!await _context.Invoices.HasPaidInvoiceAsync(requestId))
         {
+            await transaction.RollbackAsync();
             TempData["ErrorMessage"] = "This service cannot be completed because it does not have a paid invoice.";
             return RedirectToAction(nameof(Index), new { jobId = requestId });
+        }
+
+        if (!job.Check1_Diagnostic || !job.Check2_Hardware || !job.Check3_Firmware || !job.Check4_QA || !job.Check5_Handover
+            || !await _context.JobDeliverables.AnyAsync(d => d.RequestID == requestId && d.Phase == "FinalProof" && d.ImagePath != null))
+        {
+            TempData["ErrorMessage"] = "The technician must complete the checklist and submit repair proof before customer sign-off.";
+            return RedirectToAction(nameof(Index));
         }
 
         if (actionType == "Approve")
@@ -271,10 +298,13 @@ public class ServiceRequestsController : Controller
         }
         else if (actionType == "Revise")
         {
-            var inventoryError = await JobInventoryService.DeductForJobStartAsync(_context, requestId);
-            if (inventoryError != null)
+            var inventoryResult = await _jobInventoryService.DeductForJobStartAsync(
+                requestId,
+                user.FullName ?? user.Email ?? "Customer");
+            if (!inventoryResult.Succeeded)
             {
-                TempData["ErrorMessage"] = inventoryError;
+                await transaction.RollbackAsync();
+                TempData["ErrorMessage"] = inventoryResult.ErrorMessage;
                 return RedirectToAction(nameof(Index));
             }
             job.Status = "In Progress"; // Send back to In Progress
@@ -287,8 +317,15 @@ public class ServiceRequestsController : Controller
             });
             TempData["SuccessMessage"] = "Revision requested. The technician has been notified.";
         }
+        else
+        {
+            await transaction.RollbackAsync();
+            TempData["ErrorMessage"] = "Invalid review action.";
+            return RedirectToAction(nameof(Index), new { jobId = requestId });
+        }
 
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
         return RedirectToAction(nameof(Index));
     }
     [HttpPost]
@@ -301,6 +338,7 @@ public class ServiceRequestsController : Controller
         var cust = await _context.Customers.FirstOrDefaultAsync(c => c.UserID == user.Id);
         if (cust == null) return Forbid();
 
+        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
         var request = await _context.ServiceRequests.FirstOrDefaultAsync(r => r.RequestID == requestId && r.CustomerID == cust.CustomerID);
         if (request != null && request.TechID == null && request.Status != "Completed" && request.Status != "Cancelled")
         {
@@ -308,7 +346,12 @@ public class ServiceRequestsController : Controller
             request.IsArchived = true;
             await ServiceCancellationCleanup.RemoveFinancialArtifactsAsync(_context, request.RequestID);
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
             TempData["SuccessMessage"] = "Your request has been successfully cancelled.";
+        }
+        else
+        {
+            await transaction.RollbackAsync();
         }
         return RedirectToAction(nameof(Index), new { jobId = requestId, filter = "Cancelled" });
     }

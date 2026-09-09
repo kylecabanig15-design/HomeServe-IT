@@ -1,6 +1,19 @@
-﻿@{
-    ViewData["Title"] = "Privacy Policy";
+@inject HomeServeIT.Web.Services.ApplicationSettingsService ApplicationSettingsService
+@{
+    ViewData["Title"] = "University project data-use notice";
+    var projectSettings = await ApplicationSettingsService.GetAsync();
 }
-<h1>@ViewData["Title"]</h1>
-
-<p>Use this page to detail your site's privacy policy.</p>
+<article class="max-w-3xl mx-auto px-4 py-10 space-y-5 text-slate-700">
+    <h1 class="text-3xl font-bold text-slate-900">University project data-use notice</h1>
+    <p>HomeServe IT is a university final project, not an operating service business. Use fictional accounts and test data only. Do not upload real customer records, identification documents, financial details, or private photos.</p>
+    <h2 class="text-xl font-bold">What the prototype stores</h2>
+    <p>The application stores account and contact information, service addresses, device and job details, quotations and invoice status, support messages, chat messages, and uploaded service evidence. Passwords are handled by ASP.NET Core Identity. A local payment status is a demonstration record, not proof of a real payment.</p>
+    <h2 class="text-xl font-bold">Who can access it</h2>
+    <p>Customers use their own records, technicians use assigned jobs, and administrators manage the demonstration system. Developers with access to the database or server may also access stored data while debugging. Do not treat this prototype as suitable for confidential information.</p>
+    <h2 class="text-xl font-bold">Cookies and third-party resources</h2>
+    <p>The app uses authentication and security cookies to maintain sign-in and protect forms. Pages load fonts and JavaScript from Google Fonts, jsDelivr, and cdnjs; the browser contacts those providers when loading these resources.</p>
+    <h2 class="text-xl font-bold">Keeping and removing test data</h2>
+    <p>There is no approved production retention schedule. Test data remains until the project team removes it or resets a disposable test database. Database resets do not automatically remove uploaded files. Ask the project team at <a class="font-semibold text-primary underline" href="mailto:@projectSettings.SupportEmail">@projectSettings.SupportEmail</a> to review or remove a test record.</p>
+    <h2 class="text-xl font-bold">Before any public release</h2>
+    <p>This notice describes the educational prototype. A real deployment needs an identified operator and contact, reviewed retention and deletion procedures, a security review, and an appropriate privacy notice before collecting real personal data.</p>
+</article>

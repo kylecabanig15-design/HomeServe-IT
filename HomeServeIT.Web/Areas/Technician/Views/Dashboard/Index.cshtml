@@ -134,7 +134,6 @@
         var cust = nextJob.Customer != null ? $"{nextJob.Customer.FirstName} {nextJob.Customer.LastName}" : "Customer";
         var phone = nextJob.Customer?.PhoneNumber ?? "";
         var addr = nextJob.Customer?.HomeAddress ?? "Location pending";
-        var jDescClean = nextJob.IssueDescription.Replace("'", "\\'").Replace("\"", "&quot;").Replace("\n", " ").Replace("\r", "");
 
         <div class="w-full bg-white border border-[#e7eaf0] rounded-3xl p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-5 relative overflow-hidden transition-all hover:shadow-md hover:border-blue-100">
             <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-blue-500 to-indigo-600"></div>
@@ -170,19 +169,7 @@
 
             <div class="flex items-center gap-2 w-full md:w-auto mt-2 md:mt-0">
                 <button type="button" 
-                        @@click="openJobDrawer({
-                            id: '@nextJob.RequestID',
-                            jobCode: 'JOB-@nextJob.ScheduledDate.Year-@nextJob.RequestID.ToString("D4")',
-                            desc: '@jDescClean',
-                            customer: '@cust',
-                            phone: '@phone',
-                            address: '@addr',
-                            date: '@nextJob.ScheduledDate.ToString("MMMM d, yyyy · h:mm tt")',
-                            cat: '@nextJob.ServiceCategory',
-                            prio: '@nextJob.Priority',
-                            status: '@nextJob.Status',
-                            image: '@(nextJob.ImagePath ?? "")'
-                        })"
+                        data-request="@HomeServeIT.Web.Models.ServiceRequestUiData.Serialize(nextJob)" @@click="openJobDrawer(JSON.parse($el.dataset.request))"
                         class="flex-1 md:flex-initial px-5 py-2.5 bg-[#0878f9] hover:bg-blue-600 text-white font-['Inter'] font-semibold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
                     <span>Manage Progress</span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
@@ -223,22 +210,9 @@
                     var cust = job.Customer != null ? $"{job.Customer.FirstName} {job.Customer.LastName}" : "Customer";
                     var phone = job.Customer?.PhoneNumber ?? "";
                     var addr = job.Customer?.HomeAddress ?? "No address";
-                    var jDescClean = job.IssueDescription.Replace("'", "\\'").Replace("\"", "&quot;").Replace("\n", " ").Replace("\r", "");
 
                     <div class="py-4 flex items-center justify-between gap-4 group hover:bg-gray-50/70 rounded-xl px-2 -mx-2 transition-colors cursor-pointer"
-                         @@click="openJobDrawer({
-                            id: '@job.RequestID',
-                            jobCode: 'JOB-@job.ScheduledDate.Year-@job.RequestID.ToString("D4")',
-                            desc: '@jDescClean',
-                            customer: '@cust',
-                            phone: '@phone',
-                            address: '@addr',
-                            date: '@job.ScheduledDate.ToString("MMMM d, yyyy · h:mm tt")',
-                            cat: '@job.ServiceCategory',
-                            prio: '@job.Priority',
-                            status: '@job.Status',
-                            image: '@(job.ImagePath ?? "")'
-                         })">
+                         data-request="@HomeServeIT.Web.Models.ServiceRequestUiData.Serialize(job)" @@click="openJobDrawer(JSON.parse($el.dataset.request))">
                         
                         <div class="flex items-center gap-4 min-w-0">
                             <!-- Time Badge -->
@@ -305,22 +279,9 @@
                     var cust = job.Customer != null ? $"{job.Customer.FirstName} {job.Customer.LastName}" : "Customer";
                     var phone = job.Customer?.PhoneNumber ?? "";
                     var addr = job.Customer?.HomeAddress ?? "No address";
-                    var jDescClean = job.IssueDescription.Replace("'", "\\'").Replace("\"", "&quot;").Replace("\n", " ").Replace("\r", "");
 
                     <div class="py-3 flex flex-col gap-1 cursor-pointer hover:bg-gray-50 rounded-xl p-2 -mx-2 transition-colors"
-                         @@click="openJobDrawer({
-                            id: '@job.RequestID',
-                            jobCode: 'JOB-@job.ScheduledDate.Year-@job.RequestID.ToString("D4")',
-                            desc: '@jDescClean',
-                            customer: '@cust',
-                            phone: '@phone',
-                            address: '@addr',
-                            date: '@job.ScheduledDate.ToString("MMMM d, yyyy · h:mm tt")',
-                            cat: '@job.ServiceCategory',
-                            prio: '@job.Priority',
-                            status: '@job.Status',
-                            image: '@(job.ImagePath ?? "")'
-                         })">
+                         data-request="@HomeServeIT.Web.Models.ServiceRequestUiData.Serialize(job)" @@click="openJobDrawer(JSON.parse($el.dataset.request))">
                         <div class="flex items-center justify-between">
                             <span class="font-['JetBrains_Mono'] text-[11px] text-[#0878f9] font-medium">@job.ScheduledDate.ToString("MMM d · h:mm tt")</span>
                             <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full @(job.Priority == "Urgent" ? "bg-red-50 text-red-700" : "bg-gray-100 text-gray-700")">

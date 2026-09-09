@@ -2,6 +2,7 @@
 @using HomeServeIT.Web.Models
 @inject UserManager<ApplicationUser> UserManager
 @inject HomeServeIT.Web.Services.NotificationService NotificationService
+@inject HomeServeIT.Web.Services.ApplicationSettingsService ApplicationSettingsService
 @{
     var appUser = await UserManager.GetUserAsync(User);
     var fullName = string.IsNullOrWhiteSpace(appUser?.FullName) ? (appUser?.UserName ?? "User") : appUser.FullName;
@@ -11,13 +12,14 @@
     var notificationFeed = appUser == null
         ? new NotificationFeedViewModel()
         : await NotificationService.GetFeedAsync(appUser, take: 5);
+    var shellSettings = await ApplicationSettingsService.GetAsync();
 }
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Customer - HomeServe IT</title>
+    <title>@ViewData["Title"] - Customer - @shellSettings.SystemName</title>
     
     <!-- Tailwind CSS (compiled) -->
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
@@ -27,37 +29,41 @@
     <script defer src="https://cdn.jsdelivr.net/npm/@@alpinejs/intersect@3.x.x/dist/cdn.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script defer src="~/js/site.js" asp-append-version="true"></script>
+    <script defer src="~/js/app-shell.js" asp-append-version="true"></script>
+    <link rel="stylesheet" href="~/css/app-shell.css" asp-append-version="true" />
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
 </head>
-<body class="bg-[#f5f7fa] text-dark font-sans antialiased relative min-h-screen flex flex-col">
+<body class="app-shell bg-[#f5f7fa] text-dark font-sans antialiased relative min-h-screen flex flex-col">
     
     <!-- Shell -->
+    <a class="skip-link" href="#main-content">Skip to content</a>
     <div class="content-stretch flex flex-col flex-1 items-start relative w-full min-h-screen">
         
         <!-- Header -->
-        <header class="bg-white border-[#e7eaf0] border-b border-solid content-stretch flex gap-[12px] h-[64px] items-center px-[16px] w-full z-50 sticky top-0 shrink-0">
+        <header class="app-header bg-white border-[#e7eaf0] border-b border-solid content-stretch flex gap-[12px] h-[64px] items-center px-[16px] w-full z-50 sticky top-0 shrink-0">
+            <partial name="~/Views/Shared/_MobileNavigationButton.cshtml" />
             <!-- Logo / Title -->
-            <div class="content-stretch flex gap-[10px] items-center pr-[16px] relative shrink-0 w-[236px]">
+            <a asp-area="Customer" asp-controller="Dashboard" asp-action="Index" aria-label="Go to Overview" class="app-brand content-stretch flex gap-[10px] items-center pr-[16px] relative shrink-0 w-[236px] rounded-[8px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0878f9]">
                 <div class="bg-[#0878f9] content-stretch flex items-center justify-center relative rounded-[8px] shrink-0 size-[28px] overflow-hidden">
                     <img src="~/img/logo.svg" alt="Logo" class="w-full h-full object-contain" />
                 </div>
                 <div class="content-stretch flex flex-col items-start relative shrink-0">
                     <p class="font-['Inter'] font-bold leading-[22.5px] relative shrink-0 text-[#17191c] text-[15px] tracking-[-0.375px] whitespace-nowrap">
-                        HomeServe IT
+                        @shellSettings.SystemName
                     </p>
                 </div>
-            </div>
+            </a>
             
             <!-- Search bar -->
-            <div class="bg-[#f8fafc] border border-[#e7eaf0] border-solid content-stretch flex flex-1 max-w-[384px] gap-[8px] h-[32px] items-center px-[12px] relative rounded-[10px]">
+            <div class="app-header-search bg-[#f8fafc] border border-[#e7eaf0] border-solid content-stretch flex flex-1 max-w-[384px] gap-[8px] h-[32px] items-center px-[12px] relative rounded-[10px]">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a929e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative shrink-0">
                     <circle cx="11" cy="11" r="8"></circle>
                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
-                <input type="text" placeholder="Search…" class="bg-transparent border-none outline-none font-['Inter'] font-normal leading-[19.5px] text-[#8a929e] text-[13px] flex-1 min-w-0" />
+                <input type="text" aria-label="Search this page" placeholder="Search this page…" class="bg-transparent border-none outline-none font-['Inter'] font-normal leading-[19.5px] text-[#8a929e] text-[13px] flex-1 min-w-0" />
                 <div class="bg-white border border-[#e7eaf0] border-solid content-stretch flex flex-col items-start px-[4px] py-[2px] relative rounded-[4px] shrink-0">
                     <p class="font-['JetBrains_Mono'] font-normal leading-[16.5px] relative shrink-0 text-[#8a929e] text-[11px] whitespace-nowrap">
                         ⌘K
@@ -116,12 +122,13 @@
         <div class="content-stretch flex items-stretch relative w-full flex-1">
             
             <!-- Sidebar -->
-            <aside class="bg-white border-[#e7eaf0] border-r border-solid content-stretch flex flex-col items-stretch px-[8px] py-[12px] w-[248px] overflow-y-auto sticky top-[64px] h-[calc(100vh-64px)] shrink-0 z-40">
+            <aside id="app-navigation" aria-label="Primary navigation" class="app-navigation bg-white border-[#e7eaf0] border-r border-solid content-stretch flex flex-col items-stretch px-[8px] py-[12px] w-[248px] overflow-y-auto sticky top-[64px] h-[calc(100vh-64px)] shrink-0 z-40">
                 <partial name="_CustomerSidebarPartial" model="notificationFeed" />
             </aside>
             
             <!-- Main Content Area -->
-            <main class="content-stretch flex flex-1 flex-col items-stretch min-w-px relative">
+            <button type="button" class="app-nav-backdrop" aria-label="Close navigation" tabindex="-1" hidden></button>
+            <main id="main-content" tabindex="-1" class="app-main content-stretch flex flex-1 flex-col items-stretch min-w-px relative">
                 @RenderBody()
             </main>
             
@@ -129,6 +136,7 @@
     </div>
     
     <!-- Alpine.js Modal Portals etc -->
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
     <partial name="~/Views/Shared/_ToastPartial.cshtml" />
 </body>

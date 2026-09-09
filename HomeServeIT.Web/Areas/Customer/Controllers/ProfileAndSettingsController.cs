@@ -1,21 +1,39 @@
+using HomeServeIT.Web.Constants;
+using HomeServeIT.Web.Models;
+using HomeServeIT.Web.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HomeServeIT.Web.Areas.Customer.Controllers;
 
 [Area("Customer")]
-[Authorize(Roles = HomeServeIT.Web.Constants.Roles.Customer)]
-public class ProfileAndSettingsController : Controller
+[Authorize(Roles = Roles.Customer)]
+public class ProfileAndSettingsController(
+    UserManager<ApplicationUser> users,
+    SignInManager<ApplicationUser> signIn,
+    AccountProfileService profiles) : Controller
 {
-    public IActionResult Index()
+    public async Task<IActionResult> Index()
     {
-        return View();
+        var user = await users.GetUserAsync(User);
+        return user == null ? Challenge() : View(ProfileViewModel.FromUser(user));
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult UpdateProfile(string fullName, string email, string mobile, string address, string city)
+    public async Task<IActionResult> UpdateProfile(ProfileViewModel model)
     {
+        var user = await users.GetUserAsync(User);
+        if (user == null) return Challenge();
+        if (!ModelState.IsValid) return View("Index", model);
+        var result = await profiles.UpdateAsync(user, model);
+        if (!result.Succeeded)
+        {
+            foreach (var error in result.Errors) ModelState.AddModelError("", error.Description);
+            return View("Index", model);
+        }
+        await signIn.RefreshSignInAsync(user);
         TempData["SuccessMessage"] = "Profile updated successfully.";
         return RedirectToAction(nameof(Index));
     }

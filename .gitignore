@@ -19,6 +19,9 @@ obj/
 ## Node / Tailwind build artifacts
 node_modules/
 HomeServeIT.Web/wwwroot/css/app.css
+HomeServeIT.Web/test-results/
+HomeServeIT.Web/playwright-report/
+HomeServeIT.Web/App_Data/
 
 ## Secrets - NEVER commit these
 appsettings.Development.json

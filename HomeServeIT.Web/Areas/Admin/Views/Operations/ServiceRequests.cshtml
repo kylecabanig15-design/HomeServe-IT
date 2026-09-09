@@ -111,26 +111,17 @@
                     }
 
                     var techValue = request.TechID == null ? "unassigned" : request.TechID.ToString();
-                    var rDesc = (request.IssueDescription ?? "").Replace("'", "\\'").Replace("\r", "").Replace("\n", " ");
-                    var rCat = request.ServiceCategory;
-                    var rDate = request.ScheduledDate.ToString("MMM d, yyyy \u2013 h:mm tt");
-                    var rTech = request.Technician != null ? $"{request.Technician.FirstName} {request.Technician.LastName}".Replace("'", "\\'") : "Unassigned";
-                    var rStatus = request.Status;
-                    var rPrio = request.Priority;
-                    var rImage = request.ImagePath ?? "";
-                    var rCustomer = request.Customer != null ? $"{request.Customer.FirstName} {request.Customer.LastName}".Replace("'", "\\'") : "Unknown";
-                    var rIsCancelReq = request.IsCancellationRequested.ToString().ToLower();
-                    var rCancelReason = (request.CancellationReason ?? "").Replace("'", "\\'").Replace("\r", "").Replace("\n", " ");
-                    var rCancelStatus = (request.CancellationStatus ?? "None").Replace("'", "\\'");
-                    var rIsArchived = request.IsArchived.ToString().ToLower();
                     var c1 = request.Check1_Diagnostic.ToString().ToLower();
                     var c2 = request.Check2_Hardware.ToString().ToLower();
                     var c3 = request.Check3_Firmware.ToString().ToLower();
                     var c4 = request.Check4_QA.ToString().ToLower();
                     var c5 = request.Check5_Handover.ToString().ToLower();
-                    var rDeliverable = "";
+                    var technicianInitials = request.Technician == null
+                        ? "T"
+                        : $"{(string.IsNullOrWhiteSpace(request.Technician.FirstName) ? "" : request.Technician.FirstName[..1])}{(string.IsNullOrWhiteSpace(request.Technician.LastName) ? "" : request.Technician.LastName[..1])}";
+                    if (string.IsNullOrWhiteSpace(technicianInitials)) technicianInitials = "T";
 
-                    <tr x-show="(activeTab === 'all' || activeTab === '@actualTab') && (selectedTech === 'all' || selectedTech === '@techValue')" class="border-b border-[#e7eaf0] last:border-0 hover:bg-blue-50/20 transition-colors cursor-pointer" @@click="openDrawer({ id: '@request.RequestID', desc: '@rDesc', cat: '@rCat', date: '@rDate', tech: '@rTech', status: '@rStatus', prio: '@rPrio', image: '@rImage', customer: '@rCustomer', isCancelReq: @rIsCancelReq, cancelReason: '@rCancelReason', cancelStatus: '@rCancelStatus', isArchived: @rIsArchived, c1: @c1, c2: @c2, c3: @c3, c4: @c4, c5: @c5, deliverable: '@rDeliverable' })">
+                    <tr data-tab="@actualTab" data-tech="@techValue" x-show="(activeTab === 'all' || activeTab === $el.dataset.tab) && (selectedTech === 'all' || selectedTech === $el.dataset.tech)" class="border-b border-[#e7eaf0] last:border-0 hover:bg-blue-50/20 transition-colors cursor-pointer" data-request="@HomeServeIT.Web.Models.ServiceRequestUiData.Serialize(request)" @@click="openDrawer(JSON.parse($el.dataset.request))">
                         <td class="py-4 px-6 font-['JetBrains_Mono'] font-medium text-[#0878f9]">JOB-@request.ScheduledDate.Year-@request.RequestID.ToString("D4")</td>
                         <td class="py-4 px-6">
                             <p class="font-semibold text-[#17191c]">@request.Customer?.FirstName @request.Customer?.LastName</p>
@@ -141,7 +132,7 @@
                             {
                                 <div class="flex items-center gap-2">
                                     <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-[11px]">
-                                        @(request.Technician?.FirstName?.Substring(0,1))@(request.Technician?.LastName?.Substring(0,1))
+                                        @technicianInitials.ToUpperInvariant()
                                     </div>
                                     <div>
                                         <p class="font-medium">@request.Technician?.FirstName @request.Technician?.LastName</p>
@@ -171,6 +162,10 @@
                                 if (request.Status == "PendingAdminApproval")
                                 {
                                     displayStatus = "Pending";
+                                }
+                                else if (request.Status == "PendingCustomerReview")
+                                {
+                                    displayStatus = "Awaiting Customer Approval";
                                 }
                                 if (request.Status == "Completed")
                                 {
@@ -306,7 +301,7 @@
                         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold"
                               :class="{ 'bg-green-50 text-green-700': drawerReq.status==='Completed', 'bg-blue-50 text-blue-700': drawerReq.status==='In Progress', 'bg-yellow-50 text-yellow-700': drawerReq.status==='Pending' }">
                             <span class="w-1.5 h-1.5 rounded-full" :class="{ 'bg-green-500': drawerReq.status==='Completed', 'bg-blue-500': drawerReq.status==='In Progress', 'bg-yellow-500': drawerReq.status==='Pending' }"></span>
-                            <span x-text="drawerReq.status === 'PendingAdminApproval' ? 'Pending' : drawerReq.status"></span>
+                            <span x-text="drawerReq.status === 'PendingAdminApproval' ? 'Pending' : drawerReq.status === 'PendingCustomerReview' ? 'Awaiting Customer Approval' : drawerReq.status"></span>
                         </span>
                     </template>
                     <template x-if="drawerReq">
@@ -565,7 +560,7 @@
     </div>
 
     <!-- New Request Modal -->
-    <div x-show="showRequestModal" style="display: none;" class="relative z-[100]" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div x-show="showRequestModal" style="display: none;" class="relative z-[100]" aria-labelledby="modal-title-1" role="dialog" aria-modal="true">
         <div x-show="showRequestModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 bg-gray-500/75 backdrop-blur-sm transition-opacity"></div>
         <div class="fixed inset-0 z-10 overflow-y-auto">
             <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
@@ -573,7 +568,7 @@
                     <div class="bg-white px-6 pb-6 pt-6">
                         <div class="sm:flex sm:items-start">
                             <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                                <h3 class="text-[20px] font-bold leading-6 text-[#17191c]" id="modal-title">New Service Request</h3>
+                                <h3 class="text-[20px] font-bold leading-6 text-[#17191c]" id="modal-title-1">New Service Request</h3>
                                 <div class="mt-2">
                                     <p class="text-[14px] text-[#5d6470]">Create a new service request for a customer.</p>
                                 </div>
@@ -638,7 +633,7 @@
                                         </div>
                                         <div>
                                             <label class="block text-sm font-semibold text-[#17191c] mb-1.5">Attach Photo (optional)</label>
-                                            <input type="file" name="image" accept="image/*" class="block w-full text-[13px] text-[#5d6470] file:mr-3 file:py-1.5 file:px-3 file:rounded-[6px] file:border-0 file:text-[12px] file:font-semibold file:bg-blue-50 file:text-[#0878f9] hover:file:bg-blue-100 border border-[#e7eaf0] rounded-lg p-1" />
+                                            <input type="file" name="image" accept=".jpg,.jpeg,.png,.gif,.webp" class="block w-full text-[13px] text-[#5d6470] file:mr-3 file:py-1.5 file:px-3 file:rounded-[6px] file:border-0 file:text-[12px] file:font-semibold file:bg-blue-50 file:text-[#0878f9] hover:file:bg-blue-100 border border-[#e7eaf0] rounded-lg p-1" />
                                         </div>
                                     </div>
                                     <div class="mt-8 flex items-center justify-end gap-3">

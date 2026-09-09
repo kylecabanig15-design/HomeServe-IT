@@ -7,12 +7,12 @@
     <div class="absolute top-0 right-0 -z-10 w-[600px] h-[600px] bg-blue-50/50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
 
     <!-- Hero Section -->
-    <div class="flex flex-col lg:flex-row items-center gap-16 mb-24 relative z-10" x-data="{ loaded: false }" x-init="setTimeout(() => loaded = true, 100)">
+    <div class="flex flex-col lg:flex-row items-center gap-16 mb-24 relative z-10" x-data="{ loaded: true }">
         <!-- Hero Text -->
         <div class="flex-1 space-y-8 transition-all duration-1000 transform" :class="loaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'">
             <div class="inline-flex items-center gap-2 px-3 py-1 bg-blue-50/80 text-primary rounded-full text-xs font-semibold border border-blue-100/50 shadow-sm">
                 <div class="w-1.5 h-1.5 rounded-full bg-primary"></div>
-                Available now in Davao City
+                IT15L Final Project — Kyle Christian Cabanig
             </div>
             
             <h1 class="text-[52px] leading-[1.1] font-bold text-dark tracking-tight">
@@ -146,7 +146,7 @@
                 <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-primary transition-all duration-300 group-hover:scale-110"><partial name="_AppIcon" model='"laptop"' /></div>
                 <h3 class="font-bold text-dark text-lg mb-2 relative z-10">Laptop & PC repair</h3>
                 <p class="text-sm text-muted mb-6 leading-relaxed min-h-[48px] relative z-10">Hardware diagnosis, component replacement, screen repair, and more.</p>
-                <a href="#" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
+                <a href="/Identity/Account/Register" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
             </div>
             <!-- Service 2 -->
             <div class="bg-white/60 backdrop-blur-xl border border-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:border-blue-200 transition-all duration-500 hover:-translate-y-2 group relative overflow-hidden reveal-up" :class="shown ? 'is-visible' : ''" style="transition-delay: 200ms;">
@@ -154,7 +154,7 @@
                 <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-primary transition-all duration-300 group-hover:scale-110"><partial name="_AppIcon" model='"globe"' /></div>
                 <h3 class="font-bold text-dark text-lg mb-2 relative z-10">Network & Wi-Fi setup</h3>
                 <p class="text-sm text-muted mb-6 leading-relaxed min-h-[48px] relative z-10">Home and office network installation, router configuration, and troubleshooting.</p>
-                <a href="#" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
+                <a href="/Identity/Account/Register" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
             </div>
             <!-- Service 3 -->
             <div class="bg-white/60 backdrop-blur-xl border border-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:border-blue-200 transition-all duration-500 hover:-translate-y-2 group relative overflow-hidden reveal-up" :class="shown ? 'is-visible' : ''" style="transition-delay: 300ms;">
@@ -162,7 +162,7 @@
                 <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-primary transition-all duration-300 group-hover:scale-110"><partial name="_AppIcon" model='"printer"' /></div>
                 <h3 class="font-bold text-dark text-lg mb-2 relative z-10">Printer support</h3>
                 <p class="text-sm text-muted mb-6 leading-relaxed min-h-[48px] relative z-10">Setup, driver installation, maintenance, and cartridge servicing.</p>
-                <a href="#" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
+                <a href="/Identity/Account/Register" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
             </div>
             <!-- Service 4 -->
             <div class="bg-white/60 backdrop-blur-xl border border-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:border-blue-200 transition-all duration-500 hover:-translate-y-2 group relative overflow-hidden reveal-up" :class="shown ? 'is-visible' : ''" style="transition-delay: 400ms;">
@@ -170,7 +170,7 @@
                 <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-primary transition-all duration-300 group-hover:scale-110"><partial name="_AppIcon" model='"camera"' /></div>
                 <h3 class="font-bold text-dark text-lg mb-2 relative z-10">CCTV installation</h3>
                 <p class="text-sm text-muted mb-6 leading-relaxed min-h-[48px] relative z-10">IP camera systems, DVR/NVR setup, and remote viewing configuration.</p>
-                <a href="#" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
+                <a href="/Identity/Account/Register" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
             </div>
             <!-- Service 5 -->
             <div class="bg-white/60 backdrop-blur-xl border border-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:border-blue-200 transition-all duration-500 hover:-translate-y-2 group relative overflow-hidden reveal-up" :class="shown ? 'is-visible' : ''" style="transition-delay: 500ms;">
@@ -178,7 +178,7 @@
                 <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-primary transition-all duration-300 group-hover:scale-110"><partial name="_AppIcon" model='"hard-drive"' /></div>
                 <h3 class="font-bold text-dark text-lg mb-2 relative z-10">Data backup & recovery</h3>
                 <p class="text-sm text-muted mb-6 leading-relaxed min-h-[48px] relative z-10">Secure data backup, cloud sync setup, and emergency data recovery.</p>
-                <a href="#" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
+                <a href="/Identity/Account/Register" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
             </div>
             <!-- Service 6 -->
             <div class="bg-white/60 backdrop-blur-xl border border-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:border-blue-200 transition-all duration-500 hover:-translate-y-2 group relative overflow-hidden reveal-up" :class="shown ? 'is-visible' : ''" style="transition-delay: 600ms;">
@@ -186,7 +186,7 @@
                 <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-primary transition-all duration-300 group-hover:scale-110"><partial name="_AppIcon" model='"shield"' /></div>
                 <h3 class="font-bold text-dark text-lg mb-2 relative z-10">Software & security</h3>
                 <p class="text-sm text-muted mb-6 leading-relaxed min-h-[48px] relative z-10">OS installation, virus removal, software support, and security hardening.</p>
-                <a href="#" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
+                <a href="/Identity/Account/Register" class="text-sm font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all relative z-10">Request service <span aria-hidden="true">&rarr;</span></a>
             </div>
         </div>
     </div>

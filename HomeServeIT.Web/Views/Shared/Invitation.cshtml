@@ -1,0 +1,8 @@
+@model HomeServeIT.Web.Services.InvitationViewModel
+@{ ViewData["Title"] = "Account invitation"; }
+<main class="mx-auto max-w-2xl p-8">
+    <h1 class="text-2xl font-bold">Account created</h1>
+    <p class="my-4">Share this single-use password setup link privately with @Model.Email. It expires after one day.</p>
+    <a href="@Model.SetupUrl" class="text-blue-700 underline">Set up password</a>
+    <p class="mt-4 text-sm">The account has no shared temporary password. Copy the link before leaving this page.</p>
+</main>

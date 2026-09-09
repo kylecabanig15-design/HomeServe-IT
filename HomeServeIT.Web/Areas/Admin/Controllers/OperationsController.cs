@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 using HomeServeIT.Web.Constants;
 using HomeServeIT.Web.Data;
+using HomeServeIT.Web.Areas.Admin.Models;
 using HomeServeIT.Web.Models;
 using HomeServeIT.Web.Services;
 
@@ -14,11 +16,19 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _env;
+        private readonly JobInventoryService _jobInventoryService;
+        private readonly TechnicianAssignmentService _technicianAssignmentService;
 
-        public OperationsController(ApplicationDbContext context, IWebHostEnvironment env)
+        public OperationsController(
+            ApplicationDbContext context,
+            IWebHostEnvironment env,
+            JobInventoryService jobInventoryService,
+            TechnicianAssignmentService technicianAssignmentService)
         {
             _context = context;
             _env = env;
+            _jobInventoryService = jobInventoryService;
+            _technicianAssignmentService = technicianAssignmentService;
         }
 
         public async Task<IActionResult> ServiceRequests()
@@ -42,7 +52,9 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> AddServiceRequest(int customerId, string issueDescription, DateTime scheduledDate, string? serviceCategory, IFormFile? image)
+        [RequestSizeLimit(PrivateUploadService.MaxRequestBytes)]
+        [RequestFormLimits(MultipartBodyLengthLimit = PrivateUploadService.MaxRequestBytes)]
+        public async Task<IActionResult> AddServiceRequest(int customerId, string issueDescription, DateTime scheduledDate, string? serviceCategory, IFormFile? image, [FromServices] PrivateUploadService uploads)
         {
             if (string.IsNullOrWhiteSpace(issueDescription))
             {
@@ -63,22 +75,15 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
                 return RedirectToAction(nameof(ServiceRequests));
             }
 
-            string? imagePath = null;
-            if (image != null && image.Length > 0)
+            StoredUpload? stored;
+            try { stored = await uploads.StoreAsync(image, "service-requests", HttpContext.RequestAborted); }
+            catch (UploadValidationException ex)
             {
-                var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "service-requests");
-                Directory.CreateDirectory(uploadsDir);
-                var ext = Path.GetExtension(image.FileName).ToLowerInvariant();
-                var allowed = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
-                if (allowed.Contains(ext))
-                {
-                    var fileName = $"{Guid.NewGuid()}{ext}";
-                    var filePath = Path.Combine(uploadsDir, fileName);
-                    using var stream = new FileStream(filePath, FileMode.Create);
-                    await image.CopyToAsync(stream);
-                    imagePath = $"/uploads/service-requests/{fileName}";
-                }
+                TempData["ErrorMessage"] = ex.Message;
+                return RedirectToAction(nameof(ServiceRequests));
             }
+            await using var upload = stored;
+            var imagePath = upload?.Url;
 
             var request = new ServiceRequest
             {
@@ -91,15 +96,24 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
             };
             _context.ServiceRequests.Add(request);
             await _context.SaveChangesAsync();
+            upload?.Complete();
             TempData["SuccessMessage"] = $"Service Request created successfully for Customer #{customerId}.";
             return RedirectToAction(nameof(ServiceRequests));
         }
 
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
         public async Task<IActionResult> Technicians()
         {
             var techs = await _context.Technicians
                 .Include(t => t.User)
                 .ToListAsync();
+            var now = DateTimeOffset.UtcNow;
+            var activeTechnicians = techs
+                .Where(t => t.User != null && !t.User.IsArchived && (t.User.LockoutEnd == null || t.User.LockoutEnd <= now))
+                .ToList();
+            var suspendedTechnicians = techs
+                .Where(t => t.User == null || t.User.IsArchived || t.User.LockoutEnd > now)
+                .ToList();
 
             var activeJobCounts = await _context.ServiceRequests
                 .Where(r => r.TechID != null && r.Status != "Completed" && r.Status != "Cancelled" && !r.IsArchived)
@@ -116,30 +130,28 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
             ViewBag.ActiveJobCounts = activeJobCounts;
             ViewBag.CompletedJobCounts = completedJobCounts;
 
-            return View(techs);
+            return View(new TechnicianDirectoryViewModel
+            {
+                ActiveTechnicians = activeTechnicians,
+                SuspendedTechnicians = suspendedTechnicians
+            });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> AddTechnician([FromServices] Microsoft.AspNetCore.Identity.UserManager<ApplicationUser> userManager, string firstName, string lastName, string email, string phone, string specialty)
+        public async Task<IActionResult> AddTechnician([FromServices] Microsoft.AspNetCore.Identity.UserManager<ApplicationUser> userManager, string firstName, string lastName, string email, string phone, string specialty, [FromServices] HomeServeIT.Web.Services.AccountProfileService profiles)
         {
             if (ModelState.IsValid)
             {
                 var user = new ApplicationUser { UserName = email, Email = email, EmailConfirmed = true, PhoneNumber = phone, FullName = $"{firstName} {lastName}" };
-                var result = await userManager.CreateAsync(user, "TempPass123!");
+                var temporaryPassword = "Ht!7" + Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(12));
+                var result = await profiles.CreateAsync(user, Roles.Technician, password: temporaryPassword, specialty: specialty);
                 if (result.Succeeded)
                 {
-                    await userManager.AddToRoleAsync(user, Roles.Technician);
-                    var tech = new HomeServeIT.Web.Models.Technician
-                    {
-                        UserID = user.Id,
-                        FirstName = firstName,
-                        LastName = lastName,
-                        Specialty = specialty
-                    };
-                    _context.Technicians.Add(tech);
-                    await _context.SaveChangesAsync();
-                    TempData["SuccessMessage"] = $"Technician {firstName} {lastName} added successfully.";
+                    // Cookie TempData is protected by ASP.NET Core Data Protection and consumed on the next page.
+                    TempData["CreatedTechnicianEmail"] = user.Email;
+                    TempData["CreatedTechnicianPassword"] = temporaryPassword;
+                    return RedirectToAction(nameof(Technicians));
                 }
                 else
                 {
@@ -156,47 +168,18 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditTechnician([FromServices] Microsoft.AspNetCore.Identity.UserManager<ApplicationUser> userManager, int techId, string firstName, string lastName, string email, string phone, string specialty, string? password, bool isAvailable, bool isSuspended)
+        public async Task<IActionResult> EditTechnician([FromServices] HomeServeIT.Web.Services.AccountProfileService profiles, int techId, string firstName, string lastName, string email, string phone, string specialty, string? password, bool isAvailable, bool isSuspended)
         {
             var tech = await _context.Technicians.Include(t => t.User).FirstOrDefaultAsync(t => t.TechID == techId);
-            if (tech != null && tech.User != null)
-            {
-                // Update Technician Entity
-                tech.FirstName = firstName;
-                tech.LastName = lastName;
-                tech.Specialty = specialty;
-                tech.IsAvailable = isAvailable;
-
-                // Update ApplicationUser Entity
-                var user = tech.User;
-                user.Email = email;
-                user.UserName = email;
-                user.PhoneNumber = phone;
-                user.FullName = $"{firstName} {lastName}";
-
-                await userManager.UpdateAsync(user);
-
-                // Handle Password change
-                if (!string.IsNullOrEmpty(password))
-                {
-                    var token = await userManager.GeneratePasswordResetTokenAsync(user);
-                    await userManager.ResetPasswordAsync(user, token, password);
-                }
-
-                // Handle Suspend status
-                if (isSuspended)
-                {
-                    await userManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue);
-                    tech.IsAvailable = false; // Auto-unavailable if suspended
-                }
-                else
-                {
-                    await userManager.SetLockoutEndDateAsync(user, null);
-                }
-
-                await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = $"Technician {firstName} {lastName} updated successfully.";
-            }
+            if (tech?.User == null) return NotFound();
+            var model = ProfileViewModel.FromUser(tech.User);
+            model.FullName = $"{firstName} {lastName}";
+            model.Email = email;
+            model.Mobile = phone;
+            var result = await profiles.UpdateAsync(tech.User, model, password: password,
+                specialty: specialty, isAvailable: isAvailable, isSuspended: isSuspended);
+            TempData[result.Succeeded ? "SuccessMessage" : "ErrorMessage"] = result.Succeeded
+                ? "Technician updated successfully." : string.Join(" ", result.Errors.Select(e => e.Description));
             return RedirectToAction(nameof(Technicians));
         }
 
@@ -204,50 +187,62 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateStatus(int requestId, string status)
         {
-            var sr = await _context.ServiceRequests.FindAsync(requestId);
-            if (sr != null)
+            var allowedStatuses = new[] { "Pending", "Diagnosing", "In Progress", "PendingCustomerReview", "Completed", "Cancelled" };
+            if (string.IsNullOrWhiteSpace(status) || !allowedStatuses.Contains(status))
             {
-                var allowedStatuses = new[] { "Pending", "Diagnosing", "In Progress", "PendingCustomerReview", "Completed", "Cancelled" };
-                if (string.IsNullOrWhiteSpace(status) || !allowedStatuses.Contains(status))
-                {
-                    TempData["ErrorMessage"] = "Invalid service status.";
-                    return RedirectToAction(nameof(ServiceRequests));
-                }
-
-                if (status is "In Progress" or "PendingCustomerReview" or "Completed"
-                    && !await _context.Invoices.HasPaidInvoiceAsync(requestId))
-                {
-                    TempData["ErrorMessage"] = $"JOB-{requestId:D4} cannot start or be completed until its approved invoice has been paid.";
-                    return RedirectToAction(nameof(ServiceRequests));
-                }
-
-                if (status == "In Progress")
-                {
-                    var inventoryError = await JobInventoryService.DeductForJobStartAsync(_context, requestId);
-                    if (inventoryError != null)
-                    {
-                        TempData["ErrorMessage"] = inventoryError;
-                        return RedirectToAction(nameof(ServiceRequests));
-                    }
-                }
-                sr.Status = status;
-                if (status == "Cancelled")
-                {
-                    sr.TechID = null;
-                    sr.IsArchived = true;
-                    await ServiceCancellationCleanup.RemoveFinancialArtifactsAsync(_context, sr.RequestID);
-                }
-                if (status == "Completed" && !sr.CompletedDate.HasValue)
-                {
-                    sr.CompletedDate = DateTime.UtcNow;
-                }
-                else if (status != "Completed")
-                {
-                    sr.CompletedDate = null;
-                }
-                await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = $"Service Request #{requestId} status updated to {status}.";
+                TempData["ErrorMessage"] = "Invalid service status.";
+                return RedirectToAction(nameof(ServiceRequests));
             }
+
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+            var sr = await _context.ServiceRequests.FindAsync(requestId);
+            if (sr == null)
+            {
+                await transaction.RollbackAsync();
+                TempData["ErrorMessage"] = $"Service Request #{requestId} was not found.";
+                return RedirectToAction(nameof(ServiceRequests));
+            }
+
+            if (status is "In Progress" or "PendingCustomerReview" or "Completed"
+                && !await _context.Invoices.HasPaidInvoiceAsync(requestId))
+            {
+                await transaction.RollbackAsync();
+                TempData["ErrorMessage"] = $"JOB-{requestId:D4} cannot start or be completed until its approved invoice has been paid.";
+                return RedirectToAction(nameof(ServiceRequests));
+            }
+
+            if (status == "In Progress")
+            {
+                var inventoryResult = await _jobInventoryService.DeductForJobStartAsync(
+                    requestId,
+                    User.Identity?.Name ?? "Administrator");
+                if (!inventoryResult.Succeeded)
+                {
+                    await transaction.RollbackAsync();
+                    TempData["ErrorMessage"] = inventoryResult.ErrorMessage;
+                    return RedirectToAction(nameof(ServiceRequests));
+                }
+            }
+
+            if (status == "Completed")
+            {
+                await transaction.RollbackAsync();
+                TempData["ErrorMessage"] = "Only customer sign-off can complete a service request.";
+                return RedirectToAction(nameof(ServiceRequests));
+            }
+            sr.Status = status;
+            if (status == "Cancelled")
+            {
+                sr.TechID = null;
+                sr.IsArchived = true;
+                await ServiceCancellationCleanup.RemoveFinancialArtifactsAsync(_context, sr.RequestID);
+            }
+            sr.CompletedDate = null;
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+            TempData["SuccessMessage"] = $"Service Request #{requestId} status updated to {status}.";
+
             return status == "Cancelled"
                 ? RedirectToAction("ArchivedUsers", "System", new { area = "Admin" })
                 : RedirectToAction(nameof(ServiceRequests));
@@ -257,35 +252,8 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> AssignTechnician(int requestId, int techId)
         {
-            var sr = await _context.ServiceRequests.FindAsync(requestId);
-            if (sr != null)
-            {
-                var techExists = await _context.Technicians.AnyAsync(t => t.TechID == techId);
-                if (!techExists)
-                {
-                    TempData["ErrorMessage"] = $"Technician #{techId} does not exist.";
-                    return RedirectToAction(nameof(ServiceRequests));
-                }
-
-                if (techId != sr.TechID)
-                {
-                    bool conflict = await _context.ServiceRequests
-                        .AnyAsync(r => r.TechID == techId
-                                       && r.RequestID != requestId
-                                       && r.Status != "Completed"
-                                       && r.Status != "Cancelled"
-                                       && r.ScheduledDate.Date == sr.ScheduledDate.Date);
-                    if (conflict)
-                    {
-                        TempData["ErrorMessage"] = $"Technician #{techId} is already assigned to another job on {sr.ScheduledDate:MMM d, yyyy}.";
-                        return RedirectToAction(nameof(ServiceRequests));
-                    }
-                }
-
-                sr.TechID = techId;
-                await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = $"Technician assigned to Service Request #{requestId}.";
-            }
+            var result = await _technicianAssignmentService.AssignAsync(requestId, techId);
+            TempData[result.Succeeded ? "SuccessMessage" : "ErrorMessage"] = result.Message;
             return RedirectToAction(nameof(ServiceRequests));
         }
 
@@ -293,6 +261,7 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CancelRequest(int requestId)
         {
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
             var sr = await _context.ServiceRequests.FindAsync(requestId);
             if (sr != null)
             {
@@ -301,10 +270,12 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
                 sr.IsArchived = true;
                 await ServiceCancellationCleanup.RemoveFinancialArtifactsAsync(_context, sr.RequestID);
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
                 TempData["SuccessMessage"] = $"Service Request #{requestId} has been cancelled.";
             }
             else
             {
+                await transaction.RollbackAsync();
                 TempData["ErrorMessage"] = $"Service Request #{requestId} not found.";
             }
             return sr == null
@@ -315,6 +286,7 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ApproveCancellation(int requestId)
         {
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
             var request = await _context.ServiceRequests.FindAsync(requestId);
             if (request != null && request.IsCancellationRequested && request.CancellationStatus == "Pending")
             {
@@ -324,7 +296,12 @@ namespace HomeServeIT.Web.Areas.Admin.Controllers
                 request.IsArchived = true;
                 await ServiceCancellationCleanup.RemoveFinancialArtifactsAsync(_context, request.RequestID);
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
                 TempData["SuccessMessage"] = $"Cancellation approved for Request {requestId}.";
+            }
+            else
+            {
+                await transaction.RollbackAsync();
             }
             return request == null
                 ? RedirectToAction(nameof(ServiceRequests))

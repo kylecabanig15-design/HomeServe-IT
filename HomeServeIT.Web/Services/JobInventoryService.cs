@@ -1,58 +1,162 @@
 using HomeServeIT.Web.Data;
+using HomeServeIT.Web.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace HomeServeIT.Web.Services;
 
-public static class JobInventoryService
+public enum JobInventoryDeductionStatus
 {
-    public static async Task<string?> DeductForJobStartAsync(ApplicationDbContext context, int requestId)
+    Applied,
+    NoInventoryAllocated,
+    AlreadyDeducted,
+    Failed
+}
+
+public sealed record JobInventoryDeductionResult(
+    JobInventoryDeductionStatus Status,
+    string? ErrorMessage = null)
+{
+    public bool Succeeded => Status != JobInventoryDeductionStatus.Failed;
+}
+
+public sealed class JobInventoryService(ApplicationDbContext context)
+{
+    public async Task<JobInventoryDeductionResult> DeductForJobStartAsync(
+        int requestId,
+        string performedBy,
+        CancellationToken cancellationToken = default)
     {
+        if (context.Database.CurrentTransaction == null)
+        {
+            throw new InvalidOperationException(
+                "Inventory deduction must run inside the transaction that changes the job state.");
+        }
+
+        var job = await context.ServiceRequests
+            .AsNoTracking()
+            .Where(request => request.RequestID == requestId)
+            .Select(request => new
+            {
+                request.RequestID,
+                request.ServiceCategory,
+                request.IssueDescription,
+                CustomerName = request.Customer.FirstName + " " + request.Customer.LastName,
+                request.Customer.HomeAddress
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (job == null)
+        {
+            return new JobInventoryDeductionResult(
+                JobInventoryDeductionStatus.Failed,
+                $"Service Request #{requestId} does not exist.");
+        }
+
         var usages = await context.JobInventoryUsages
-            .Include(u => u.InventoryItem)
-            .Where(u => u.RequestID == requestId && !u.IsDeducted)
-            .ToListAsync();
+            .AsNoTracking()
+            .Where(usage => usage.RequestID == requestId && !usage.IsDeducted)
+            .OrderBy(usage => usage.UsageID)
+            .Select(usage => new
+            {
+                usage.UsageID,
+                usage.ItemID,
+                usage.Quantity,
+                usage.UnitPrice,
+                usage.InventoryItem.ItemName,
+                usage.InventoryItem.UnitCost
+            })
+            .ToListAsync(cancellationToken);
 
-        var insufficient = usages.FirstOrDefault(u => u.InventoryItem.StockQuantity < u.Quantity);
-        if (insufficient != null)
-            return $"Cannot complete the job: {insufficient.InventoryItem.ItemName} has only {insufficient.InventoryItem.StockQuantity} in stock, but {insufficient.Quantity} is allocated.";
+        if (usages.Count == 0)
+        {
+            var hasAllocatedInventory = await context.JobInventoryUsages
+                .AsNoTracking()
+                .AnyAsync(usage => usage.RequestID == requestId, cancellationToken);
 
-        var serviceRequest = await context.ServiceRequests
-            .Include(r => r.Customer)
-            .Include(r => r.Technician)
-            .FirstOrDefaultAsync(r => r.RequestID == requestId);
+            return new JobInventoryDeductionResult(
+                hasAllocatedInventory
+                    ? JobInventoryDeductionStatus.AlreadyDeducted
+                    : JobInventoryDeductionStatus.NoInventoryAllocated);
+        }
 
-        var techName = serviceRequest?.Technician != null
-            ? $"{serviceRequest.Technician.FirstName} {serviceRequest.Technician.LastName} (Technician)"
-            : "Assigned Technician";
+        var destination = $"Job #JOB-{job.RequestID:D4} · {job.CustomerName.Trim()}";
+        if (!string.IsNullOrWhiteSpace(job.HomeAddress))
+            destination += $" ({job.HomeAddress})";
 
-        var customerName = serviceRequest?.Customer != null
-            ? $"{serviceRequest.Customer.FirstName} {serviceRequest.Customer.LastName}"
-            : "Customer";
-
-        var destination = serviceRequest != null
-            ? $"Job #JOB-{serviceRequest.RequestID:D4} · {customerName}{(string.IsNullOrWhiteSpace(serviceRequest.Customer?.HomeAddress) ? "" : $" ({serviceRequest.Customer.HomeAddress})")}"
-            : $"Service Request #{requestId}";
-
+        var appliedCount = 0;
         foreach (var usage in usages)
         {
-            usage.InventoryItem.StockQuantity -= usage.Quantity;
-            usage.IsDeducted = true;
+            if (usage.Quantity <= 0)
+            {
+                return new JobInventoryDeductionResult(
+                    JobInventoryDeductionStatus.Failed,
+                    $"{usage.ItemName} has an invalid allocated quantity of {usage.Quantity}.");
+            }
 
-            context.StockMovements.Add(new HomeServeIT.Web.Models.StockMovement
+            // Claim the usage first. Concurrent retries can no longer deduct the same
+            // allocation twice; a failed transaction rolls the claim back with the stock change.
+            var claimed = await context.JobInventoryUsages
+                .Where(candidate => candidate.UsageID == usage.UsageID && !candidate.IsDeducted)
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(candidate => candidate.IsDeducted, true),
+                    cancellationToken);
+
+            if (claimed == 0)
+            {
+                return appliedCount == 0
+                    ? new JobInventoryDeductionResult(JobInventoryDeductionStatus.AlreadyDeducted)
+                    : new JobInventoryDeductionResult(
+                        JobInventoryDeductionStatus.Failed,
+                        "Inventory allocation changed concurrently. Please retry the job start.");
+            }
+
+            // The stock predicate and decrement execute as one SQL statement. A stale
+            // application-side stock value therefore cannot make inventory negative.
+            var deducted = await context.InventoryItems
+                .Where(item => item.ItemID == usage.ItemID && item.StockQuantity >= usage.Quantity)
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(
+                        item => item.StockQuantity,
+                        item => item.StockQuantity - usage.Quantity),
+                    cancellationToken);
+
+            if (deducted == 0)
+            {
+                var available = await context.InventoryItems
+                    .AsNoTracking()
+                    .Where(item => item.ItemID == usage.ItemID)
+                    .Select(item => (int?)item.StockQuantity)
+                    .SingleOrDefaultAsync(cancellationToken);
+
+                var availability = available.HasValue
+                    ? $"has only {available.Value} in stock"
+                    : "is no longer available";
+
+                return new JobInventoryDeductionResult(
+                    JobInventoryDeductionStatus.Failed,
+                    $"Cannot start the job: {usage.ItemName} {availability}, but {usage.Quantity} is allocated.");
+            }
+
+            var notes = $"Used for {job.ServiceCategory}: {job.IssueDescription}";
+            context.StockMovements.Add(new StockMovement
             {
                 ItemID = usage.ItemID,
                 RequestID = requestId,
                 MovementType = "Job Usage",
                 Quantity = -usage.Quantity,
-                UnitCost = usage.InventoryItem.UnitCost,
+                UnitCost = usage.UnitCost,
                 UnitPrice = usage.UnitPrice,
                 Timestamp = DateTime.UtcNow,
-                PerformedBy = techName,
-                DestinationOrSource = destination,
-                Notes = serviceRequest != null ? $"Used for {serviceRequest.ServiceCategory}: {serviceRequest.IssueDescription}" : null
+                PerformedBy = Truncate(string.IsNullOrWhiteSpace(performedBy) ? "System" : performedBy, 100),
+                DestinationOrSource = Truncate(destination, 255),
+                Notes = Truncate(notes, 500)
             });
+            appliedCount++;
         }
 
-        return null;
+        return new JobInventoryDeductionResult(JobInventoryDeductionStatus.Applied);
     }
+
+    private static string Truncate(string value, int maxLength) =>
+        value.Length <= maxLength ? value : value[..maxLength];
 }

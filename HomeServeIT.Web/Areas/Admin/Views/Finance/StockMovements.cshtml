@@ -129,6 +129,7 @@
                     <option value="Restock" selected="@(selectedMovementType == "Restock")">Restock / Replenishment</option>
                     <option value="Initial Stock" selected="@(selectedMovementType == "Initial Stock")">Initial Stock Intake</option>
                     <option value="Manual Adjustment" selected="@(selectedMovementType == "Manual Adjustment")">Manual Adjustment</option>
+                    <option value="Archived" selected="@(selectedMovementType == "Archived")">Material Removal</option>
                 </select>
 
                 <!-- Item Filter -->
@@ -221,6 +222,13 @@
                                                 +@move.Quantity @(move.Quantity == 1 ? "pc" : "pcs")
                                             </span>
                                             <span class="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider">@move.MovementType</span>
+                                        }
+                                        else if (move.MovementType == "Archived")
+                                        {
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200">
+                                                Archived
+                                            </span>
+                                            <span class="text-[10px] text-red-600 font-semibold uppercase tracking-wider">Material Removal</span>
                                         }
                                         else
                                         {
